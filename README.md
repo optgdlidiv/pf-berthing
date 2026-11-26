@@ -14,6 +14,9 @@ A single-page tool for drawing platform berthing charts at any station: trains, 
 
 Checks flag clashes (same PF, overlapping time, common day), bad timings and load > PF capacity. *Free PF finder* lists the free PFs for a proposed slot.
 
+## Train count
+**Train count** tab: PF-wise and station-total counts of Terminating, Originating (and how many terminate & originate on the same PF), Passing, EMU and Passenger trains, with the train numbers. Comma-separated train nos. are counted individually (`19337(1),20983(3,6)` = 2); a train no. in several rows is counted once. Choose *All days* or one day; download as CSV.
+
 ## Where the data lives
 - **Google Drive (recommended):** click **Drive: off** in the top bar and follow the one-time setup. It uses a small Apps Script ([`drive/Code.gs`](drive/Code.gs)) that you deploy from your own Google account. Each **Save** writes into your Drive folder **PF Berthing Charts**:
   - `stations/<station>.json` – current data (trains, PFs, change log)

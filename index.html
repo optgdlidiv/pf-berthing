@@ -60,6 +60,8 @@ tr.hl td{background:light-dark(#fff7d6,#33300f)}
 .issue{padding:8px 10px;border-left:4px solid var(--bad);background:var(--badbg);margin:6px 0;border-radius:4px;font-size:15px}
 .issue.w{border-color:#d39e00;background:var(--warnbg)}
 .issue a{color:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}.kpi b{display:block;font:700 34px/1.1 "Barlow Condensed",Arial,sans-serif}.kpi span{font-size:14px;color:var(--mute)}
+tfoot td{font-weight:700;border-top:2px solid var(--ink);background:var(--panel)}
 .free{color:var(--ok);font-weight:700}.busy{color:var(--bad);font-weight:700}
 dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);width:min(760px,94vw);padding:18px}
 dialog::backdrop{background:#0008}
@@ -89,6 +91,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
   <button role="tab" data-t="chart" aria-selected="true">Chart</button>
   <button role="tab" data-t="trains">Trains<span class="badge" id="bTr"></span></button>
   <button role="tab" data-t="setup">Station &amp; PFs</button>
+  <button role="tab" data-t="count">Train count</button>
   <button role="tab" data-t="finder">Free PF finder</button>
   <button role="tab" data-t="checks">Checks<span class="badge" id="bCk"></span></button>
   <button role="tab" data-t="log">Change log<span class="badge" id="bLg" style="background:#5b6573"></span></button>
@@ -143,6 +146,14 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
         <button class="btn danger" id="del">Delete station</button>
       </div>
     </div>
+  </section>
+
+  <section id="t-count" class="hid">
+    <div class="bar"><label>Count for <select id="cDay"><option value="0">All days (each train once)</option><option value="1">Mon (1)</option><option value="2">Tue (2)</option><option value="3">Wed (3)</option><option value="4">Thu (4)</option><option value="5">Fri (5)</option><option value="6">Sat (6)</option><option value="7">Sun (7)</option></select></label>
+      <span style="flex:1"></span><button class="btn" id="cCsv">Download count (CSV)</button></div>
+    <div id="cSum" class="grid2"></div>
+    <div class="tw" style="max-height:none"><table id="cT"><thead><tr><th>PF</th><th class="num">Terminating</th><th class="num">Originating</th><th class="num">of which Term → Orig (same PF)</th><th class="num">Passing</th><th class="num">EMU</th><th class="num">Passenger</th><th class="num">Total trains</th><th>Train nos.</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
+    <p class="note">Each train no. is counted separately — <b>19337(1),20983(3,6)</b> = 2 trains. A Term → Orig row counts its arriving train as terminating and its departing train as originating. A train no. appearing in more than one row (e.g. different days) is counted once per PF and once for the station. With a day selected, only trains running that day are counted. Rows with errors (see Checks) are not counted.</p>
   </section>
 
   <section id="t-finder" class="hid">
@@ -253,7 +264,7 @@ function derive(st){
           return aT.map((k,j)=>[k,dT[j]]).filter(([k])=>on(k)).map(([k,q])=>k.no+'/'+q.no+(day==0&&k.d&&k.d.label?' ('+k.d.label+')':''));
         return[A.map(ts).join(', ')+' / '+D.map(ts).join(', ')]}
       return(c==='O'?D:A).map(ts)};
-    return{i,t,pf,s,e,d:dd,dIgn:hasBr&&String(t.days??'').trim()!==''&&!/^(daily|d|all|dly)$/i.test(String(t.days).trim()),c,lab,lines,iss,warn,clash:[],ok:!iss.length}});
+    return{i,t,pf,s,e,d:dd,aT,dT,dIgn:hasBr&&String(t.days??'').trim()!==''&&!/^(daily|d|all|dly)$/i.test(String(t.days).trim()),c,lab,lines,iss,warn,clash:[],ok:!iss.length}});
   const g=+st.gap||0;
   for(let a=0;a<it.length;a++)for(let b=a+1;b<it.length;b++){const A=it[a],B=it[b];
     if(!A.ok||!B.ok||A.pf!==B.pf)continue;if(!A.d.set.some((x,k)=>x&&B.d.set[k]))continue;
@@ -386,7 +397,7 @@ function refresh(){Object.values(stations).forEach(migrate);
   if(!has){$('#chart').innerHTML='';return}
   IT=derive(st());const nC=IT.filter(x=>x.clash.length).length,nB=IT.filter(x=>!x.ok).length,nW=IT.filter(x=>x.warn.length).length;
   $('#bCk').textContent=(nC+nB+nW)||'';$('#bTr').textContent=st().trains.length||'';
-  drawChart();renderTrains();renderSetup();renderFinder();renderChecks();renderLog();if(!ARTIFACT)updFile()}
+  drawChart();renderTrains();renderSetup();renderFinder();renderChecks();renderLog();renderCount();if(!ARTIFACT)updFile()}
 function drawChart(){const day=+$('#day').value;const rows=layout(st(),day,IT);const {svg,H}=svgChart(st(),rows,{day});
   const box=$('#chart');box.innerHTML=svg;const el=box.querySelector('svg');const z=$('#zoom').value;
   if(z==='fit'){el.style.width='100%';el.style.height='auto'}else{el.style.width=W*+z+'px';el.style.height=H*+z+'px'}}
@@ -594,6 +605,29 @@ $('#dlgGh').addEventListener('close',async()=>{const v=$('#dlgGh').returnValue;i
   if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(gcfg.url)){toast('Paste the Web app URL from Apps Script (starts with https://script.google.com/)');return}
   if(!gcfg.key){toast('Enter the KEY you set in Code.gs');return}
   try{await ghConnect()}catch(e){setSave('Drive: '+e.message,true);toast('Could not connect: '+e.message)}});
+/* ---------- train count ---------- */
+function countTrains(day){const s=st(),cats=['T','O','TO','P','E','G'];
+  const blank=()=>({T:new Set(),O:new Set(),TO:new Set(),P:new Set(),E:new Set(),G:new Set()});
+  const per=s.pfs.map(p=>({pf:String(p.name),c:blank()})),tot=blank();
+  const on=k=>day==0||(k.d&&k.d.set[day-1]);
+  IT.filter(x=>x.ok).forEach(x=>{const row=per.find(r=>r.pf===x.pf);if(!row)return;const add=(cat,no)=>{row.c[cat].add(no);tot[cat].add(no)};
+    const A=x.aT.filter(on).map(k=>k.no),D=x.dT.filter(on).map(k=>k.no);
+    if(x.c==='T')A.forEach(n=>add('T',n));else if(x.c==='O')D.forEach(n=>add('O',n));
+    else if(x.c==='TO'){A.forEach(n=>{add('T',n);add('TO',n)});D.forEach(n=>add('O',n))}
+    else [...A,...D].forEach(n=>add(x.c,n))});
+  const all=c=>new Set([...c.T,...c.O,...c.P,...c.E,...c.G]);
+  return{per,tot,all}}
+function renderCount(){if(!st())return;const day=+$('#cDay').value,{per,tot,all}=countTrains(day);
+  const n=x=>x.size,list=c=>[['T','Term'],['O','Orig'],['P','Pass'],['E','EMU'],['G','Psgr']].filter(([k])=>c[k].size).map(([k,l])=>l+': '+[...c[k]].sort().join(', ')).join(' · ');
+  $('#cT tbody').innerHTML=per.map(r=>`<tr><td><b>${esc(r.pf)}</b></td><td class="num">${n(r.c.T)}</td><td class="num">${n(r.c.O)}</td><td class="num">${n(r.c.TO)}</td><td class="num">${n(r.c.P)}</td><td class="num">${n(r.c.E)}</td><td class="num">${n(r.c.G)}</td><td class="num"><b>${n(all(r.c))}</b></td><td class="note" style="min-width:260px">${esc(list(r.c))}</td></tr>`).join('');
+  $('#cT tfoot').innerHTML=`<tr><td>Station</td><td class="num">${n(tot.T)}</td><td class="num">${n(tot.O)}</td><td class="num">${n(tot.TO)}</td><td class="num">${n(tot.P)}</td><td class="num">${n(tot.E)}</td><td class="num">${n(tot.G)}</td><td class="num">${n(all(tot))}</td><td class="note">${day?'Trains running on '+DAYN[day-1]:'All days'} · each train no. counted once</td></tr>`;
+  const bad=IT.filter(x=>!x.ok).length;
+  $('#cSum').innerHTML=[['Terminating',n(tot.T)],['Originating',n(tot.O)],['Term → Orig (same PF)',n(tot.TO)],['Total trains at station',n(all(tot))]].map(([l,v])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('')+(bad?`<div class="kpi" style="border-color:var(--bad)"><b style="color:var(--bad)">${bad}</b><span>row(s) with errors not counted – see Checks</span></div>`:'')}
+$('#cDay').addEventListener('change',renderCount);
+$('#cCsv').onclick=()=>{if(!st())return;const day=+$('#cDay').value,{per,tot,all}=countTrains(day),q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const row=(pf,c)=>[pf,c.T.size,c.O.size,c.TO.size,c.P.size,c.E.size,c.G.size,all(c).size,[...c.T].sort().join(' '),[...c.O].sort().join(' ')];
+  const rows=[[st().name+' – train count – '+(day?DAYN[day-1]+' ('+day+')':'All days')],['PF','Terminating','Originating','of which Term->Orig','Passing','EMU','Passenger','Total trains','Terminating train nos.','Originating train nos.']].concat(per.map(r=>row(r.pf,r.c)),[row('Station',tot)]);
+  save(fname('csv').replace('_Berthing_','_TrainCount_'),'﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'))};
 /* ---------- toast ---------- */
 let tT=null;function toast(m,undo,lbl='Undo'){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').textContent=lbl;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
 
