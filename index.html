@@ -120,7 +120,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
       <button class="btn" id="csv">Download CSV</button>
     </div>
     <div class="tw"><table id="trT"><thead><tr><th>#</th><th>PF</th><th>Type</th><th>Arr. train</th><th>Dep. train</th><th>PF from</th><th>PF to</th><th>Days</th><th>Load</th><th>Remarks</th><th>Check</th><th></th></tr></thead><tbody></tbody></table></div>
-    <p class="note">Choose the Type for each train — changing Terminating ↔ Originating moves the train no. to the right column. Term → Orig needs both Arr. and Dep. train. Times 24-hr (06:45, 0645 or 6.45). Past midnight is fine (21:05 → 00:10). Days: Daily · 1,3,5 · Ex.4,7 (1 = Mon … 7 = Sun). Same slot on different days = one row per train; they are combined on the chart.</p>
+    <p class="note">Choose the Type for each train — changing Terminating ↔ Originating moves the train no. to the right column. Term → Orig needs both Arr. and Dep. train. Times 24-hr (06:45, 0645 or 6.45). Past midnight is fine (21:05 → 00:10). Days: Daily · 1,3,5 · Ex.4,7 (1 = Mon … 7 = Sun), or leave blank and put days in brackets after each train no., e.g. Arr 19337(1),20983(3,6) · Dep 19338(1),20984(3,6) — the chart then shows one line per pair. Same slot on different days = one row per train; they are combined on the chart.</p>
   </section>
 
   <section id="t-setup" class="hid">
@@ -203,17 +203,33 @@ function setKind(t,k){t.kind=k;if(k==='O'){t.dep=t.dep||t.arr;t.arr=''}else if(k
 function migrate(stn){(stn.trains||[]).forEach(t=>{if(!t.kind){t.kind=legacy(t);if(t.kind!=='TO')setKind(t,t.kind)}delete t.type})}
 const tname=c=>({T:'Terminating',O:'Originating',TO:'Term → Orig',P:'Passing',E:'EMU',G:'Passenger'}[c]);
 
+/* ---------- train-no tokens with own days, e.g. 19337(1),20983(3,6) ---------- */
+function toks(v){const out=[];const re=/([A-Za-z]*\d[\w-]*)\s*(?:\(([^)]*)\))?/g;let m;const sv=String(v??'');
+  while((m=re.exec(sv)))out.push({no:m[1],br:m[2]!=null?m[2].trim():null});return out}
+const dkey=d=>d?d.set.join(''):'';
 /* ---------- derived data ---------- */
 function derive(st){
   const names=st.pfs.map(p=>String(p.name));
   const it=st.trains.map((t,i)=>{const iss=[];const s=toMin(t.from),e0=toMin(t.to),d=parseDays(t.days);
     if(!String(t.pf??'').trim())iss.push('PF missing');else if(!names.includes(String(t.pf).trim()))iss.push('PF '+t.pf+' not defined');
     const k0=code(t);if(k0==='TO'){if(!t.arr)iss.push('Arr. train no. missing');if(!t.dep)iss.push('Dep. train no. missing')}else if(!t.arr&&!t.dep)iss.push('Train no. missing');if(s==null)iss.push('From time invalid');if(e0==null)iss.push('To time invalid');
-    if(!d)iss.push('Days not understood');let e=e0;if(s!=null&&e0!=null){if(e0<s)e=e0+1440;if(e===s)iss.push('From = To')}
+    const aT=toks(t.arr),dT=toks(t.dep),hasBr=[...aT,...dT].some(k=>k.br!=null);
+    [...aT,...dT].forEach(k=>{k.d=k.br!=null?parseDays(k.br):d;if(k.br!=null&&!k.d)iss.push('Days in ('+k.br+') not understood')});
+    let dd=d;if(hasBr){const all=[...aT,...dT].map(k=>k.d).filter(Boolean);
+      dd=all.length?{set:[0,1,2,3,4,5,6].map(i=>all.some(x=>x.set[i])?1:0),label:''}:null}
+    if(!hasBr&&!d)iss.push('Days not understood');let e=e0;if(s!=null&&e0!=null){if(e0<s)e=e0+1440;if(e===s)iss.push('From = To')}
     const pf=String(t.pf??'').trim(),pi=names.indexOf(pf),cap=pi>=0?+st.pfs[pi].cap||0:0;const warn=[];
     if(cap&&+t.load>cap)warn.push('Load '+t.load+' > PF capacity '+cap);
     const kk=code(t),lab=kk==='TO'?(t.arr||'?')+'/'+(t.dep||'?'):kk==='O'?(t.dep||t.arr||''):(t.arr||t.dep||'');
-    return{i,t,pf,s,e,d,c:code(t),lab,iss,warn,clash:[],ok:!iss.length}});
+    const c=code(t);
+    const lines=day=>{if(!hasBr)return[lab+(day==0&&d&&d.label?' ('+d.label+')':'')];
+      const on=k=>day==0||(k.d&&k.d.set[day-1]),ts=k=>k.no+(day==0&&k.d&&k.d.label?' ('+k.d.label+')':'');
+      const A=aT.filter(on),D=dT.filter(on);
+      if(c==='TO'){if(aT.length===dT.length&&aT.every((k,j)=>dkey(k.d)===dkey(dT[j].d)))
+          return aT.map((k,j)=>[k,dT[j]]).filter(([k])=>on(k)).map(([k,q])=>k.no+'/'+q.no+(day==0&&k.d&&k.d.label?' ('+k.d.label+')':''));
+        return[A.map(ts).join(', ')+' / '+D.map(ts).join(', ')]}
+      return(c==='O'?D:A).map(ts)};
+    return{i,t,pf,s,e,d:dd,dIgn:hasBr&&String(t.days??'').trim()!==''&&!/^(daily|d|all|dly)$/i.test(String(t.days).trim()),c,lab,lines,iss,warn,clash:[],ok:!iss.length}});
   const g=+st.gap||0;
   for(let a=0;a<it.length;a++)for(let b=a+1;b<it.length;b++){const A=it[a],B=it[b];
     if(!A.ok||!B.ok||A.pf!==B.pf)continue;if(!A.d.set.some((x,k)=>x&&B.d.set[k]))continue;
@@ -234,7 +250,7 @@ function layout(st,day,it){
     mine.forEach(x=>{(by[x.s+'|'+x.e]??=[]).push(x)});
     r.groups=Object.values(by).map(ms=>{const s=ms[0].s,e=ms[0].e,cs=[...new Set(ms.map(m=>m.c))];
       const c=cs.length===1?cs[0]:cs.every(k=>['T','O','TO'].includes(k))?'TO':cs[0];
-      const lines=ms.map(m=>m.lab+(day==0&&m.d.label?' ('+m.d.label+')':''));
+      const lines=ms.flatMap(m=>m.lines(day));
       const tEnd=(e%1440===0&&e>0?'24:00':fmt(e)),time=fmt(s)+' - '+tEnd;
       const segs=[[s,Math.min(e,1440)]];if(e>1440)segs.push([1440,e]);
       const main=segs.length>1&&(segs[1][1]-segs[1][0])>(segs[0][1]-segs[0][0])?1:0;
@@ -362,7 +378,7 @@ function renderTrains(hl=[]){
     return`<tr data-i="${x.i}"${hl.includes(x.i)?' class="hl"':''}><td class="num" style="color:var(--mute)">${x.i+1}</td>
 <td><select data-f="pf" aria-label="PF" style="min-width:64px"><option value=""></option>${pfo.replace(`<option>${esc(t.pf)}</option>`,`<option selected>${esc(t.pf)}</option>`)}${t.pf&&!s.pfs.some(p=>String(p.name)===String(t.pf))?`<option selected>${esc(t.pf)}</option>`:''}</select></td>
 <td><select data-f="kind" aria-label="Type" style="min-width:150px;font-weight:600;color:${k==='T'?'#d00000':k==='O'?'#008a3e':k==='TO'?'#8a4b00':'inherit'}">${KINDS.map(([v,n])=>`<option value="${v}"${k===v?' selected':''}>${n}</option>`).join('')}</select></td>
-<td>${inp('arr',76,'',k==='O',k==='O'?'—':sing?'Train no.':'')}</td><td>${inp('dep',76,'',k!=='O'&&k!=='TO','—')}</td><td>${inp('from',64,x.s==null&&t.from!==''?'bad':'')}</td><td>${inp('to',64,toMin(t.to)==null&&t.to!==''?'bad':'')}</td><td>${inp('days',80,!x.d?'bad':'')}</td>
+<td>${inp('arr',76,'',k==='O',k==='O'?'—':sing?'Train no.':'')}</td><td>${inp('dep',76,'',k!=='O'&&k!=='TO','—')}</td><td>${inp('from',64,x.s==null&&t.from!==''?'bad':'')}</td><td>${inp('to',64,toMin(t.to)==null&&t.to!==''?'bad':'')}</td><td>${x.dIgn?`<input data-f="days" value="${esc(t.days)}" style="min-width:80px;color:var(--mute);text-decoration:line-through" title="Ignored – days are taken from the train no. brackets" aria-label="days">`:inp('days',80,!x.d?'bad':'',false,'Daily')}</td>
 <td>${inp('load',48)}</td><td>${inp('rem',150)}</td><td class="st ${c}">${esc(m)}</td><td><button class="x" data-del="${x.i}" aria-label="Delete row">×</button></td></tr>`}).join('')||`<tr><td colspan="12" class="empty">No trains${q||fp.value||bad?' match the filter':' yet — add or paste from Excel'}.</td></tr>`}
 $('#trT').addEventListener('change',e=>{const f=e.target.dataset.f;if(!f)return;const i=+e.target.closest('tr').dataset.i;let v=e.target.value.trim();
   if(f==='kind'){setKind(st().trains[i],v);touch();refresh();return}
