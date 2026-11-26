@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PF Berthing Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a control-office working tool — calm, exact, nothing decorative.
+   IDEA: the printed divisional berthing sheet pinned on the wall; the page is its editor.
+   PICTURE: the berthing chart itself, full width, at the top of the Chart tab.
+   COLOUR and TYPE: paper white chart, ink #15191f bars, red/green straight from the sheet; Barlow (signage-like) for UI, Arial in the chart for print fidelity.
+   LAYOUT: thin top bar (station, save state), tabs, then one working surface per tab. */
+:root{color-scheme:light dark;--bg:light-dark(#eef0f3,#111418);--panel:light-dark(#ffffff,#1a1f26);--ink:light-dark(#15191f,#e8ebef);--mute:light-dark(#5b6573,#9aa4b2);--line:light-dark(#d5dae1,#2c333d);--acc:light-dark(#0b5394,#7fb2ea);--accink:#fff;--warn:light-dark(#8a5a00,#ffcf70);--warnbg:light-dark(#fff3cd,#3a2f12);--bad:light-dark(#b3261e,#ff8a80);--badbg:light-dark(#fde7e6,#3b1d1b);--ok:light-dark(#1e7b34,#7fd99a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Barlow,Arial,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:10px max(2vw,12px);background:#15191f;color:#fff}
+.top h1{font:700 22px/1.1 "Barlow Condensed",Arial,sans-serif;margin:0;letter-spacing:.2px;white-space:nowrap}
+.top select,.top input{background:#232a33;border:1px solid #3a434f;color:#fff;border-radius:6px;padding:8px 10px;min-height:40px}
+.top .sp{flex:1}
+.save{font-size:14px;color:#c9d1db;white-space:nowrap}.save.err{color:#ffb4ab}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:8px 14px;min-height:40px;cursor:pointer;font-weight:600;white-space:nowrap}
+.btn:hover{border-color:var(--acc)}.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:var(--accink)}
+.btn.dark{background:#232a33;border-color:#3a434f;color:#fff}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:default}
+.tabs{display:flex;gap:2px;padding:0 max(2vw,12px);background:#15191f;overflow-x:auto}
+.tabs button{background:none;border:0;color:#aeb7c2;padding:10px 16px;min-height:44px;font-weight:600;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+.tabs button[aria-selected=true]{color:#fff;border-bottom-color:#e8452c}
+.badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:10px;background:#e8452c;color:#fff;font-size:12px;margin-left:6px;line-height:20px;text-align:center}
+.badge:empty{display:none}
+main{padding:14px max(2vw,12px) 40px}
+.bar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-bottom:12px}
+.bar label{font-size:14px;color:var(--mute);display:flex;gap:6px;align-items:center}
+.bar select,.bar input,.fld{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:7px 10px;min-height:40px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+.note{font-size:14px;color:var(--mute)}
+.chartwrap{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:calc(100vh - 210px);min-height:300px}
+.chartwrap svg{display:block}
+.chartwrap .grp{cursor:pointer}.chartwrap .grp:hover rect.lb{fill:#e8f1fb}
+.empty{padding:40px;text-align:center;color:#5b6573}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{position:sticky;top:0;background:var(--panel);z-index:1;text-align:left;font-size:13px;color:var(--mute);font-weight:600;padding:6px 4px;border-bottom:2px solid var(--line);white-space:nowrap}
+td{padding:2px 3px;border-bottom:1px solid var(--line);vertical-align:middle}
+td input,td select{width:100%;border:1px solid transparent;background:transparent;border-radius:4px;padding:6px 6px;min-height:36px;font-size:15px}
+td input:hover,td select:hover{border-color:var(--line)}
+td input:focus,td select:focus{border-color:var(--acc);background:var(--panel)}
+td input.bad{border-color:var(--bad);background:var(--badbg)}
+.tw{overflow:auto;max-height:calc(100vh - 230px);border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.st{font-size:13px;font-weight:600;white-space:nowrap}.st.ok{color:var(--ok)}.st.bad{color:var(--bad)}.st.warn{color:var(--warn)}
+tr.hl td{background:light-dark(#fff7d6,#33300f)}
+.x{border:0;background:none;cursor:pointer;color:var(--mute);font-size:20px;width:36px;height:36px;border-radius:6px}.x:hover{color:var(--bad);background:var(--badbg)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin-bottom:14px}
+.grid2 label{display:block;font-size:14px;color:var(--mute)}.grid2 input{width:100%;margin-top:4px}
+.issue{padding:8px 10px;border-left:4px solid var(--bad);background:var(--badbg);margin:6px 0;border-radius:4px;font-size:15px}
+.issue.w{border-color:#d39e00;background:var(--warnbg)}
+.issue a{color:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+.free{color:var(--ok);font-weight:700}.busy{color:var(--bad);font-weight:700}
+dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);width:min(760px,94vw);padding:18px}
+dialog::backdrop{background:#0008}
+textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:6px;padding:8px;background:var(--bg);font:13px/1.4 Consolas,monospace}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#15191f;color:#fff;padding:10px 14px;border-radius:8px;display:none;gap:12px;align-items:center;z-index:9;box-shadow:0 6px 20px #0005}
+.toast.on{display:flex}.toast button{background:none;border:1px solid #556;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer}
+.hid{display:none!important}
+.banner{padding:8px 12px;border-radius:6px;background:var(--warnbg);color:var(--warn);font-size:14px;margin-bottom:10px}
+@media(max-width:600px){.top h1{font-size:18px}.tabs button{padding:10px 10px}}
+@media(prefers-reduced-motion:no-preference){.tabs button{transition:color .15s,border-color .15s}}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>PF Berthing Chart</h1>
+  <select id="stSel" aria-label="Station"></select>
+  <button class="btn dark" id="newSt">+ New station</button>
+  <button class="btn dark" id="openF" title="Open a station file (.json)">Open file</button>
+  <button class="btn dark" id="saveF" title="Save this station to a file (Ctrl+S)">Save file</button>
+  <span class="sp"></span>
+  <span class="save" id="save">Loading…</span>
+  <input type="file" id="jsonIn" accept=".json,application/json" class="hid">
+</header>
+<nav class="tabs" role="tablist">
+  <button role="tab" data-t="chart" aria-selected="true">Chart</button>
+  <button role="tab" data-t="trains">Trains<span class="badge" id="bTr"></span></button>
+  <button role="tab" data-t="setup">Station &amp; PFs</button>
+  <button role="tab" data-t="finder">Free PF finder</button>
+  <button role="tab" data-t="checks">Checks<span class="badge" id="bCk"></span></button>
+</nav>
+<main>
+  <div id="banner" class="banner hid"></div>
+  <div id="noSt" class="panel empty hid">No station yet. <button class="btn pri" id="newSt2">Create a station</button></div>
+
+  <section id="t-chart">
+    <div class="bar">
+      <label>Show <select id="day">
+        <option value="0">All days</option><option value="1">Mon (1)</option><option value="2">Tue (2)</option><option value="3">Wed (3)</option><option value="4">Thu (4)</option><option value="5">Fri (5)</option><option value="6">Sat (6)</option><option value="7">Sun (7)</option></select></label>
+      <label>Zoom <select id="zoom"><option value="fit">Fit width</option><option value="1">100%</option><option value="1.4">140%</option><option value="2">200%</option></select></label>
+      <span style="flex:1"></span>
+      <label>Paper <select id="paper"><option value="A3">A3 landscape</option><option value="A4">A4 landscape</option><option value="A2">A2 landscape</option></select></label>
+      <button class="btn pri" id="pdf">Download PDF</button>
+      <button class="btn" id="svgDl">Download SVG</button>
+    </div>
+    <div class="chartwrap" id="chart"></div>
+    <p class="note">Bars are drawn to the exact minute entered — nothing is rounded. Click any train to edit it. Term → Orig bars are split at the midpoint (indicative only).</p>
+  </section>
+
+  <section id="t-trains" class="hid">
+    <div class="bar">
+      <label>PF <select id="fPf"><option value="">All</option></select></label>
+      <input id="fQ" class="fld" placeholder="Search train no. / remarks" aria-label="Search">
+      <label><input type="checkbox" id="fBad"> Problems only</label>
+      <span style="flex:1"></span>
+      <button class="btn pri" id="addRow">+ Add train</button>
+      <button class="btn" id="sortRows">Sort by PF &amp; time</button>
+      <button class="btn" id="paste">Paste from Excel</button>
+      <button class="btn" id="csv">Download CSV</button>
+    </div>
+    <div class="tw"><table id="trT"><thead><tr><th>#</th><th>PF</th><th>Type</th><th>Arr. train</th><th>Dep. train</th><th>PF from</th><th>PF to</th><th>Days</th><th>Load</th><th>Remarks</th><th>Check</th><th></th></tr></thead><tbody></tbody></table></div>
+    <p class="note">Choose the Type for each train — changing Terminating ↔ Originating moves the train no. to the right column. Term → Orig needs both Arr. and Dep. train. Times 24-hr (06:45, 0645 or 6.45). Past midnight is fine (21:05 → 00:10). Days: Daily · 1,3,5 · Ex.4,7 (1 = Mon … 7 = Sun). Same slot on different days = one row per train; they are combined on the chart.</p>
+  </section>
+
+  <section id="t-setup" class="hid">
+    <div class="panel">
+      <div class="grid2">
+        <label>Station name<input id="sName" class="fld"></label>
+        <label>With effect from<input id="sWef" class="fld" type="date"></label>
+        <label>Heading note<input id="sNote" class="fld" placeholder="MASTER COPY"></label>
+        <label>No. of PFs<input id="sN" class="fld" type="number" min="1" max="40"></label>
+        <label>Clearance gap between occupations on a PF (min)<input id="sGap" class="fld" type="number" min="0" max="60"></label>
+      </div>
+      <div class="tw" style="max-height:none"><table id="pfT"><thead><tr><th>PF name</th><th>Capacity (coaches)</th><th class="num">Trains</th><th class="num">Mon</th><th class="num">Tue</th><th class="num">Wed</th><th class="num">Thu</th><th class="num">Fri</th><th class="num">Sat</th><th class="num">Sun</th><th class="num">Peak use</th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Day columns = hours the PF is occupied that day (occupation past midnight counted on its start day). Peak use = busiest day ÷ 24 h.</p>
+      <div class="bar" style="margin-top:14px">
+        <button class="btn" id="dup">Duplicate station</button>
+        <span style="flex:1"></span>
+        <button class="btn danger" id="del">Delete station</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="t-finder" class="hid">
+    <div class="panel">
+      <div class="grid2">
+        <label>PF needed from (hh:mm)<input id="qF" class="fld" value="14:00"></label>
+        <label>PF needed up to (hh:mm)<input id="qT" class="fld" value="14:30"></label>
+        <label>Days<input id="qD" class="fld" value="Daily"></label>
+        <label>Load (coaches)<input id="qL" class="fld" type="number" value="22"></label>
+      </div>
+      <div class="tw" style="max-height:none"><table id="fT"><thead><tr><th>PF</th><th class="num">Capacity</th><th>Status</th><th>Load fits</th><th>Conflicting trains</th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Uses the clearance gap set under Station &amp; PFs.</p>
+    </div>
+  </section>
+
+  <section id="t-checks" class="hid"><div class="panel" id="ck"></div></section>
+</main>
+
+<dialog id="dlgNew"><form method="dialog" id="fNew">
+  <h2 style="margin:0 0 10px">New station</h2>
+  <div class="grid2"><label>Station name<input id="nName" class="fld" required placeholder="e.g. Anand Vihar Terminal"></label><label>No. of PFs<input id="nN" class="fld" type="number" min="1" max="40" value="7" required></label></div>
+  <div class="bar"><button class="btn pri" value="ok">Create</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
+</form></dialog>
+<dialog id="dlgPaste"><form method="dialog" id="fPaste">
+  <h2 style="margin:0 0 6px">Paste from Excel</h2>
+  <p class="note" style="margin-top:0">Copy rows from Excel and paste below. Column order: <b>PF · Type · Arr. train · Dep. train · From · To · Days · Load · Remarks</b> (Type, Load, Remarks optional — without a Type column the order is PF · Arr · Dep · From · To · Days and the type is worked out from which train column is filled). A header row is skipped automatically.</p>
+  <textarea id="pTxt" placeholder="1&#9;Terminating&#9;22492&#9;&#9;06:00&#9;06:30&#9;Daily"></textarea>
+  <div class="bar" style="margin-top:10px"><label><input type="radio" name="pm" value="add" checked> Add to existing</label><label><input type="radio" name="pm" value="rep"> Replace all trains</label><span style="flex:1"></span><button class="btn pri" value="ok">Import</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
+</form></dialog>
+<div class="toast" id="toast"><span id="toastT"></span><button id="toastB">Undo</button></div>
+<div id="pdfHost" style="position:absolute;left:-99999px;top:0;width:10px;height:10px;overflow:hidden"></div>
+
+<script>
+{
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DAYN=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const COL={T:'#FF0000',O:'#00B050',P:'#800000',E:'#0000FF',G:'#0000FF'};
+
+let stations={}, cur=null, db=null, downloads=null, readOnly=false;
+const ARTIFACT=!!(window.claude&&window.claude.use);
+const lastSaved={}, dirty=new Set();
+
+/* ---------- parsing ---------- */
+function toMin(v){v=String(v??'').trim();if(!v)return null;let m=v.match(/^(\d{1,2})[:.](\d{1,2})$/)||v.match(/^(\d{2})(\d{2})$/)||v.match(/^(\d)(\d{2})$/);
+  if(!m)return null;const h=+m[1],mi=+m[2];if(mi>59||h>24||(h===24&&mi>0))return null;return h*60+mi}
+const fmt=m=>{m=((m%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+function normTime(v){const m=toMin(v);return m==null?String(v??'').trim():(m===1440?'24:00':fmt(m))}
+function parseDays(s){s=String(s??'').trim();if(!s||/^(daily|d|all|dly)$/i.test(s))return{set:[1,1,1,1,1,1,1],label:''};
+  const ex=/^ex|except/i.test(s);const nums=[...new Set((s.match(/[1-7]/g)||[]).map(Number))].sort((a,b)=>a-b);
+  if(!nums.length||/[089]/.test(s.replace(/[^0-9]/g,'')))return null;let set=[1,2,3,4,5,6,7].map(d=>nums.includes(d)?1:0);
+  if(ex)set=set.map(x=>1-x);if(!set.some(Boolean))return null;return{set,label:(ex?'Ex.':'')+nums.join(',')}}
+const legacy=t=>t.type==='Passing'?'P':t.type==='EMU'?'E':t.type==='Passenger'?'G':(t.arr&&t.dep)?'TO':t.dep&&!t.arr?'O':'T';
+const code=t=>t.kind||legacy(t);
+const KINDS=[['T','Terminating'],['O','Originating'],['TO','Term → Orig'],['P','Passing'],['E','EMU'],['G','Passenger']];
+function parseKind(v){v=String(v??'').trim().toLowerCase().replace(/[^a-z]/g,'');if(!v)return null;
+  if(/^(to|tо|termorig|terminatingoriginating|terminatetooriginate|termtoorig|tro)/.test(v))return'TO';
+  if(v.startsWith('term'))return'T';if(v.startsWith('orig'))return'O';if(v==='t')return'T';if(v==='o')return'O';
+  if(v.startsWith('pass')&&v!=='passenger')return'P';if(v==='passenger'||v==='psgr'||v==='g')return'G';if(v.startsWith('emu')||v==='e')return'E';if(v==='p')return'P';return null}
+function setKind(t,k){t.kind=k;if(k==='O'){t.dep=t.dep||t.arr;t.arr=''}else if(k!=='TO'){t.arr=t.arr||t.dep;t.dep=''}}
+function migrate(stn){(stn.trains||[]).forEach(t=>{if(!t.kind){t.kind=legacy(t);if(t.kind!=='TO')setKind(t,t.kind)}delete t.type})}
+const tname=c=>({T:'Terminating',O:'Originating',TO:'Term → Orig',P:'Passing',E:'EMU',G:'Passenger'}[c]);
+
+/* ---------- derived data ---------- */
+function derive(st){
+  const names=st.pfs.map(p=>String(p.name));
+  const it=st.trains.map((t,i)=>{const iss=[];const s=toMin(t.from),e0=toMin(t.to),d=parseDays(t.days);
+    if(!String(t.pf??'').trim())iss.push('PF missing');else if(!names.includes(String(t.pf).trim()))iss.push('PF '+t.pf+' not defined');
+    const k0=code(t);if(k0==='TO'){if(!t.arr)iss.push('Arr. train no. missing');if(!t.dep)iss.push('Dep. train no. missing')}else if(!t.arr&&!t.dep)iss.push('Train no. missing');if(s==null)iss.push('From time invalid');if(e0==null)iss.push('To time invalid');
+    if(!d)iss.push('Days not understood');let e=e0;if(s!=null&&e0!=null){if(e0<s)e=e0+1440;if(e===s)iss.push('From = To')}
+    const pf=String(t.pf??'').trim(),pi=names.indexOf(pf),cap=pi>=0?+st.pfs[pi].cap||0:0;const warn=[];
+    if(cap&&+t.load>cap)warn.push('Load '+t.load+' > PF capacity '+cap);
+    const kk=code(t),lab=kk==='TO'?(t.arr||'?')+'/'+(t.dep||'?'):kk==='O'?(t.dep||t.arr||''):(t.arr||t.dep||'');
+    return{i,t,pf,s,e,d,c:code(t),lab,iss,warn,clash:[],ok:!iss.length}});
+  const g=+st.gap||0;
+  for(let a=0;a<it.length;a++)for(let b=a+1;b<it.length;b++){const A=it[a],B=it[b];
+    if(!A.ok||!B.ok||A.pf!==B.pf)continue;if(!A.d.set.some((x,k)=>x&&B.d.set[k]))continue;
+    if([-1440,0,1440].some(k=>A.s<B.e+k+g&&B.s+k<A.e+g)){A.clash.push(b);B.clash.push(a)}}
+  return it}
+
+/* ---------- chart layout ---------- */
+const M=16,LEFT=64,CAPW=64,PW=2112,W=M+LEFT+PW+CAPW+M,X0=M+LEFT;
+const BAR=16,LH=14,TOPH=78,HDR=26,RUL=10,FOOT=24;
+const xm=m=>X0+m/1440*PW;
+const cv=document.createElement('canvas').getContext('2d');
+const tw=(s,f)=>{cv.font=f;return cv.measureText(s).width};
+const FL='bold 12px Arial',FT='bold 10px Arial',FS='bold 9px Arial';
+function layout(st,day,it){
+  const rows=st.pfs.map(p=>({pf:String(p.name),cap:p.cap,groups:[],lanes:[]}));
+  const vis=it.filter(x=>x.ok&&(day==0||x.d.set[day-1]));
+  rows.forEach(r=>{const mine=vis.filter(x=>x.pf===r.pf),by={};
+    mine.forEach(x=>{(by[x.s+'|'+x.e]??=[]).push(x)});
+    r.groups=Object.values(by).map(ms=>{const s=ms[0].s,e=ms[0].e,cs=[...new Set(ms.map(m=>m.c))];
+      const c=cs.length===1?cs[0]:cs.every(k=>['T','O','TO'].includes(k))?'TO':cs[0];
+      const lines=ms.map(m=>m.lab+(day==0&&m.d.label?' ('+m.d.label+')':''));
+      const tEnd=(e%1440===0&&e>0?'24:00':fmt(e)),time=fmt(s)+' - '+tEnd;
+      const segs=[[s,Math.min(e,1440)]];if(e>1440)segs.push([1440,e]);
+      const main=segs.length>1&&(segs[1][1]-segs[1][0])>(segs[0][1]-segs[0][0])?1:0;
+      const segX=segs.map(([a,b],k)=>k===0?[xm(a),xm(b)]:[xm(a-1440),xm(b-1440)]);
+      const [x1,x2]=segX[main],bw=x2-x1;
+      const wl=Math.max(...lines.map(l=>tw(l,FL)))+8;let tl=[time],wt=tw(time,FT)+8;
+      if(wt>Math.max(bw,wl)+2){tl=[fmt(s),tEnd];wt=tw('00:00',FT)+8}
+      const bwid=Math.max(bw,wl,wt);let cx=(x1+x2)/2;cx=Math.min(Math.max(cx,X0+bwid/2),X0+PW-bwid/2);
+      const ext=[[cx-bwid/2-3,cx+bwid/2+3]];let contd='';
+      if(segs.length>1){const k=1-main,[a,b]=segX[k];contd=ms[0].lab+' contd.';const cw=tw(contd,FS)+6,c2=Math.min(Math.max((a+b)/2,X0+cw/2),X0+PW-cw/2);ext.push([Math.min(a,c2-cw/2)-2,Math.max(b,c2+cw/2)+2])}
+      const clash=ms.some(m=>m.clash.length);
+      return{ms,s,e,c,lines,tl,segs,segX,main,cx,wl:Math.max(bw,wl),wt:Math.max(bw,wt),ext,contd,clash,lh:lines.length*LH+4,th:tl.length*11+4}});
+    r.groups.sort((a,b)=>a.s-b.s||b.e-a.e);
+    r.groups.forEach(gp=>{let L=r.lanes.find(l=>!l.ext.some(([a,b])=>gp.ext.some(([c,d])=>c<b&&a<d)));
+      if(!L){L={ext:[],gs:[],lh:0,th:0};r.lanes.push(L)}L.ext.push(...gp.ext);L.gs.push(gp);L.lh=Math.max(L.lh,gp.lh);L.th=Math.max(L.th,gp.th)});
+    if(!r.lanes.length)r.lanes.push({ext:[],gs:[],lh:LH+4,th:15});
+    r.lanes.forEach(l=>l.h=l.lh+BAR+l.th+12);r.h=Math.max(64,r.lanes.reduce((s,l)=>s+l.h,0)+8)});
+  return rows}
+
+function bars(gp,x0,x1,k){ // colored pieces for one segment
+  const off=k===0?0:1440,a=gp.segs[k][0],b=gp.segs[k][1];
+  if(gp.c!=='TO')return[[x0,x1,COL[gp.c]]];
+  const mid=gp.s+(gp.e-gp.s)/2,p=[];
+  if(a<mid)p.push([xm(a-off),xm(Math.min(b,mid)-off),COL.T]);if(b>mid)p.push([xm(Math.max(a,mid)-off),xm(b-off),COL.O]);return p}
+
+function svgChart(st,rows,o){
+  const font=o.pdf?'helvetica':'Arial, Helvetica, sans-serif';
+  const bodyH=rows.reduce((s,r)=>s+r.h,0),y0=TOPH+HDR+RUL,H=y0+bodyH+FOOT;
+  const out=[];const P=s=>out.push(s);
+  P(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}">`);
+  P(`<rect width="${W}" height="${H}" fill="#fff"/>`);
+  const wef=st.wef?st.wef.split('-').reverse().join('/'):'';
+  P(`<text x="${W/2}" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#000">${esc('PLATFORM BERTHING OF '+String(st.name||'').toUpperCase())}</text>`);
+  const sub=['UPDATED WITH EFFECT FROM '+(wef||'—'),st.note||'',o.day?'SHOWING '+DAYN[o.day-1].toUpperCase()+' ('+o.day+') ONLY':'ALL DAYS',o.pages>1?'SHEET '+o.page+' OF '+o.pages:''].filter(Boolean).join('   ·   ');
+  P(`<text x="${W/2}" y="50" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${esc(sub)}</text>`);
+  // legend
+  const lg=[['T','TERMINATING'],['O','ORIGINATING'],['TO','TERM → ORIG (SAME PF)'],['P','PASSING'],['E','EMU / PASSENGER'],['X','CLASH']];
+  let lx=X0;const ly=60;
+  lg.forEach(([c,t])=>{if(c==='TO'){P(`<rect x="${lx}" y="${ly}" width="14" height="10" fill="${COL.T}"/><rect x="${lx+14}" y="${ly}" width="14" height="10" fill="${COL.O}"/>`)}
+    else if(c==='X'){P(`<rect x="${lx}" y="${ly}" width="28" height="10" fill="#FFF1A8" stroke="#FF8C00" stroke-width="2"/>`)}
+    else P(`<rect x="${lx}" y="${ly}" width="28" height="10" fill="${COL[c]}"/>`);
+    const tt=o.pdf?t.replace('→','>'):t;P(`<text x="${lx+34}" y="${ly+9}" font-size="10" font-weight="bold" fill="#000">${esc(tt)}</text>`);lx+=48+tw(tt,'bold 10px Arial')});
+  P(`<text x="${X0+PW+CAPW}" y="${ly+9}" text-anchor="end" font-size="10" fill="#444">Days: 1=Mon … 7=Sun · bars to exact minute</text>`.replace('…',o.pdf?'...':'…'));
+  // header
+  const hy=TOPH;
+  P(`<rect x="${M}" y="${hy}" width="${LEFT}" height="${HDR}" fill="#15191f"/><text x="${M+LEFT/2}" y="${hy+18}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">PF</text>`);
+  for(let h=0;h<24;h++){const x=xm(h*60);P(`<rect x="${x}" y="${hy}" width="${PW/24}" height="${HDR}" fill="${h%2?'#2b3442':'#15191f'}"/><text x="${x+PW/48}" y="${hy+18}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${String(h).padStart(2,'0')}-${String(h+1).padStart(2,'0')}</text>`)}
+  P(`<rect x="${X0+PW}" y="${hy}" width="${CAPW}" height="${HDR}" fill="#15191f"/><text x="${X0+PW+CAPW/2}" y="${hy+17}" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#fff">CAPACITY</text>`);
+  // ruler
+  for(let t=0;t<=240;t++){const x=xm(t*6),hh=t%10===0?RUL:t%5===0?7:4;P(`<line x1="${x}" y1="${hy+HDR}" x2="${x}" y2="${hy+HDR+hh}" stroke="#333" stroke-width="${t%10===0?1:.5}"/>`)}
+  // rows background
+  let y=y0;rows.forEach((r,i)=>{if(i%2)P(`<rect x="${X0}" y="${y}" width="${PW}" height="${r.h}" fill="#f7f8fa"/>`);y+=r.h});
+  // grid
+  for(let t=0;t<=240;t++){const x=xm(t*6);const c=t%10===0?['#8a9099',.9]:t%5===0?['#c3c8cf',.6]:['#e6e9ed',.5];P(`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0+bodyH}" stroke="${c[0]}" stroke-width="${c[1]}"/>`)}
+  // rows
+  y=y0;rows.forEach(r=>{
+    P(`<rect x="${M}" y="${y}" width="${LEFT}" height="${r.h}" fill="#fff" stroke="#000" stroke-width="1"/><text x="${M+LEFT/2}" y="${y+r.h/2+10}" text-anchor="middle" font-size="${String(r.pf).length>3?16:28}" font-weight="bold" fill="#000">${esc(r.pf)}</text>`);
+    P(`<rect x="${X0+PW}" y="${y}" width="${CAPW}" height="${r.h}" fill="#fff" stroke="#000" stroke-width="1"/><text x="${X0+PW+CAPW/2}" y="${y+r.h/2+7}" text-anchor="middle" font-size="18" font-weight="bold" fill="#000">${esc(r.cap??'')}</text>`);
+    let ly2=y+6;
+    r.lanes.forEach(L=>{const by=ly2+L.lh;
+      L.gs.forEach(gp=>{const ids=gp.ms.map(m=>m.i).join(',');
+        const tip=gp.ms.map(m=>`${m.lab} · ${tname(m.c)} · ${fmt(m.s)}-${fmt(m.e)} · ${m.d.label||'Daily'}${m.t.load?' · '+m.t.load+' coaches':''}${m.t.rem?' · '+m.t.rem:''}${m.clash.length?' · CLASH':''}`).join('\n');
+        P(`<g class="grp" data-ids="${ids}">${o.pdf?'':'<title>'+esc(tip)+'</title>'}`);
+        gp.segX.forEach(([a,b],k)=>{bars(gp,a,b,k).forEach(([p,q,f])=>P(`<rect x="${p.toFixed(2)}" y="${by}" width="${Math.max(q-p,1).toFixed(2)}" height="${BAR}" fill="${f}"/>`));
+          P(`<rect x="${a.toFixed(2)}" y="${by}" width="${Math.max(b-a,1).toFixed(2)}" height="${BAR}" fill="none" stroke="${gp.clash?'#FF8C00':'#000'}" stroke-width="${gp.clash?2.5:.8}"/>`)});
+        const lx1=gp.cx-gp.wl/2,lyy=by-gp.lh;
+        P(`<rect class="lb" x="${lx1.toFixed(2)}" y="${lyy}" width="${gp.wl.toFixed(2)}" height="${gp.lh}" fill="${gp.clash?'#FFF1A8':'#fff'}" stroke="#000" stroke-width=".8"/>`);
+        gp.lines.forEach((l,k)=>P(`<text x="${gp.cx.toFixed(2)}" y="${lyy+13+k*LH}" text-anchor="middle" font-size="12" font-weight="bold" fill="#000">${esc(l)}</text>`));
+        const tx1=gp.cx-gp.wt/2;
+        P(`<rect x="${tx1.toFixed(2)}" y="${by+BAR}" width="${gp.wt.toFixed(2)}" height="${gp.th}" fill="#fff" stroke="#000" stroke-width=".8"/>`);
+        gp.tl.forEach((l,k)=>P(`<text x="${gp.cx.toFixed(2)}" y="${by+BAR+11+k*11}" text-anchor="middle" font-size="10" font-weight="bold" fill="#000">${esc(l)}</text>`));
+        if(gp.contd){const k=1-gp.main,[a,b]=gp.segX[k],cw=tw(gp.contd,FS);const cx2=Math.min(Math.max((a+b)/2,X0+cw/2+3),X0+PW-cw/2-3);P(`<text x="${cx2.toFixed(2)}" y="${by-3}" text-anchor="middle" font-size="9" font-weight="bold" fill="#000">${esc(gp.contd)}</text>`)}
+        P('</g>')});
+      ly2+=L.h});
+    P(`<line x1="${M}" y1="${y+r.h}" x2="${X0+PW+CAPW}" y2="${y+r.h}" stroke="#000" stroke-width="1.4"/>`);
+    y+=r.h});
+  P(`<rect x="${M}" y="${y0}" width="${LEFT+PW+CAPW}" height="${bodyH}" fill="none" stroke="#000" stroke-width="1.4"/>`);
+  const now=new Date();
+  P(`<text x="${M}" y="${H-8}" font-size="9" fill="#555">${esc('Generated '+now.toLocaleDateString('en-GB')+' '+now.toTimeString().slice(0,5)+' · Bars drawn to the exact minute of PF occupation; timings in boxes are as entered. Term > Orig split at midpoint is indicative.')}</text>`);
+  P('</svg>');return{svg:out.join(''),H}}
+
+/* ---------- state & storage ---------- */
+const st=()=>stations[cur];
+function cache(){try{localStorage.setItem('pfb.cache',JSON.stringify({stations,cur}))}catch(e){}}
+function setSave(t,err){const e=$('#save');e.textContent=t;e.classList.toggle('err',!!err)}
+let saveT=null,saving=false;
+function touch(){if(!cur||readOnly)return;stations[cur].updated=new Date().toISOString();dirty.add(cur);cache();
+  if(!db){fileDirty.add(cur);if(ARTIFACT)setSave('Saved in this browser only');else updFile();return}setSave('Saving…');clearTimeout(saveT);saveT=setTimeout(flush,900)}
+async function flush(){if(saving){saveT=setTimeout(flush,500);return}saving=true;
+  try{for(const id of [...dirty]){dirty.delete(id);const body=stations[id];if(!body)continue;const j=JSON.stringify(body);
+      try{await db.doc('stations/'+id).set(JSON.parse(j));lastSaved[id]=j}
+      catch(e){if(e&&e.code==='unavailable'){await new Promise(r=>setTimeout(r,800+Math.random()*800));await db.doc('stations/'+id).set(JSON.parse(j));lastSaved[id]=j}
+        else if(e&&e.code==='invalid_argument'){readOnly=true;showBanner('You can view this chart but not change it (view-only access). Changes are not saved.');}
+        else throw e}}
+    setSave(readOnly?'View only':'All changes saved')}
+  catch(e){setSave('Not saved – '+(e&&e.code||'error')+'. Download a backup.',true)}
+  saving=false}
+function showBanner(t){const b=$('#banner');b.textContent=t;b.classList.toggle('hid',!t)}
+
+/* ---------- rendering ---------- */
+let IT=[];
+function refresh(){Object.values(stations).forEach(migrate);
+  const has=!!st();$('#noSt').classList.toggle('hid',has);$$('main>section').forEach(s=>s.style.visibility=has?'':'hidden');
+  const sel=$('#stSel');sel.innerHTML=Object.values(stations).sort((a,b)=>String(a.name).localeCompare(b.name)).map(s=>`<option value="${esc(s.id)}"${s.id===cur?' selected':''}>${esc(s.name)}</option>`).join('');
+  if(!has){$('#chart').innerHTML='';return}
+  IT=derive(st());const nC=IT.filter(x=>x.clash.length).length,nB=IT.filter(x=>!x.ok).length,nW=IT.filter(x=>x.warn.length).length;
+  $('#bCk').textContent=(nC+nB+nW)||'';$('#bTr').textContent=st().trains.length||'';
+  drawChart();renderTrains();renderSetup();renderFinder();renderChecks();if(!ARTIFACT)updFile()}
+function drawChart(){const day=+$('#day').value;const rows=layout(st(),day,IT);const {svg,H}=svgChart(st(),rows,{day});
+  const box=$('#chart');box.innerHTML=svg;const el=box.querySelector('svg');const z=$('#zoom').value;
+  if(z==='fit'){el.style.width='100%';el.style.height='auto'}else{el.style.width=W*+z+'px';el.style.height=H*+z+'px'}}
+$('#chart').addEventListener('click',e=>{const g=e.target.closest('.grp');if(!g)return;const ids=g.dataset.ids.split(',').map(Number);
+  tab('trains');$('#fPf').value='';$('#fQ').value='';$('#fBad').checked=false;renderTrains(ids);
+  const r=$(`#trT tr[data-i="${ids[0]}"]`);if(r)r.scrollIntoView({block:'center'})});
+
+function status(x){if(!x.ok)return['bad',x.iss.join(', ')];if(x.clash.length)return['bad','CLASH with '+x.clash.map(j=>IT[j].lab).join(', ')];if(x.warn.length)return['warn',x.warn.join(', ')];return['ok','OK']}
+function renderTrains(hl=[]){
+  const s=st(),fp=$('#fPf');const pv=fp.value;fp.innerHTML='<option value="">All</option>'+s.pfs.map(p=>`<option${String(p.name)===pv?' selected':''}>${esc(p.name)}</option>`).join('');
+  const q=$('#fQ').value.trim().toLowerCase(),bad=$('#fBad').checked;
+  const pfo=s.pfs.map(p=>`<option>${esc(p.name)}</option>`).join('');
+  const rows=IT.filter(x=>(!fp.value||x.pf===fp.value)&&(!q||[x.t.arr,x.t.dep,x.t.rem].join(' ').toLowerCase().includes(q))&&(!bad||!x.ok||x.clash.length||x.warn.length));
+  $('#trT tbody').innerHTML=rows.map(x=>{const t=x.t,[c,m]=status(x);
+    const inp=(f,w,cls='',dis=false,ph='')=>`<input data-f="${f}" value="${esc(t[f]??'')}" style="min-width:${w}px" class="${cls}" aria-label="${f}"${dis?' disabled':''} placeholder="${ph}">`;
+    const k=x.c,sing=['P','E','G'].includes(k);
+    return`<tr data-i="${x.i}"${hl.includes(x.i)?' class="hl"':''}><td class="num" style="color:var(--mute)">${x.i+1}</td>
+<td><select data-f="pf" aria-label="PF" style="min-width:64px"><option value=""></option>${pfo.replace(`<option>${esc(t.pf)}</option>`,`<option selected>${esc(t.pf)}</option>`)}${t.pf&&!s.pfs.some(p=>String(p.name)===String(t.pf))?`<option selected>${esc(t.pf)}</option>`:''}</select></td>
+<td><select data-f="kind" aria-label="Type" style="min-width:150px;font-weight:600;color:${k==='T'?'#d00000':k==='O'?'#008a3e':k==='TO'?'#8a4b00':'inherit'}">${KINDS.map(([v,n])=>`<option value="${v}"${k===v?' selected':''}>${n}</option>`).join('')}</select></td>
+<td>${inp('arr',76,'',k==='O',k==='O'?'—':sing?'Train no.':'')}</td><td>${inp('dep',76,'',k!=='O'&&k!=='TO','—')}</td><td>${inp('from',64,x.s==null&&t.from!==''?'bad':'')}</td><td>${inp('to',64,toMin(t.to)==null&&t.to!==''?'bad':'')}</td><td>${inp('days',80,!x.d?'bad':'')}</td>
+<td>${inp('load',48)}</td><td>${inp('rem',150)}</td><td class="st ${c}">${esc(m)}</td><td><button class="x" data-del="${x.i}" aria-label="Delete row">×</button></td></tr>`}).join('')||`<tr><td colspan="12" class="empty">No trains${q||fp.value||bad?' match the filter':' yet — add or paste from Excel'}.</td></tr>`}
+$('#trT').addEventListener('change',e=>{const f=e.target.dataset.f;if(!f)return;const i=+e.target.closest('tr').dataset.i;let v=e.target.value.trim();
+  if(f==='kind'){setKind(st().trains[i],v);touch();refresh();return}
+  if(f==='from'||f==='to')v=normTime(v);if(f==='arr'||f==='dep')v=v.replace(/\s+/g,'');
+  st().trains[i][f]=v;touch();refresh()});
+$('#trT').addEventListener('click',e=>{const d=e.target.dataset.del;if(d==null)return;const i=+d;const row=st().trains.splice(i,1)[0];touch();refresh();
+  toast('Train '+(row.arr||row.dep||'row')+' deleted',()=>{st().trains.splice(i,0,row);touch();refresh()})});
+['#fPf','#fBad'].forEach(s=>$(s).addEventListener('change',()=>renderTrains()));$('#fQ').addEventListener('input',()=>renderTrains());
+$('#addRow').onclick=()=>{const pf=$('#fPf').value||'';st().trains.unshift({pf,kind:'T',arr:'',dep:'',from:'',to:'',days:'Daily',load:'',rem:''});touch();refresh();const r=$('#trT tbody tr');r&&r.querySelector('select').focus()};
+$('#sortRows').onclick=()=>{const s=st(),ord=s.pfs.map(p=>String(p.name));s.trains.sort((a,b)=>{const pa=ord.indexOf(String(a.pf)),pb=ord.indexOf(String(b.pf));return (pa<0?999:pa)-(pb<0?999:pb)||(toMin(a.from)??9999)-(toMin(b.from)??9999)});touch();refresh()};
+
+function renderSetup(){const s=st();$('#sName').value=s.name||'';$('#sWef').value=s.wef||'';$('#sNote').value=s.note||'';$('#sN').value=s.pfs.length;$('#sGap').value=s.gap||0;
+  $('#pfT tbody').innerHTML=s.pfs.map((p,k)=>{const mine=IT.filter(x=>x.ok&&x.pf===String(p.name));
+    const hrs=[0,1,2,3,4,5,6].map(d=>mine.filter(x=>x.d.set[d]).reduce((a,x)=>a+(x.e-x.s),0)/60);const pk=Math.max(...hrs);
+    return`<tr data-k="${k}"><td><input data-p="name" value="${esc(p.name)}" style="min-width:70px" aria-label="PF name"></td><td><input data-p="cap" value="${esc(p.cap??'')}" style="min-width:70px" aria-label="Capacity"></td><td class="num">${mine.length}</td>${hrs.map(h=>`<td class="num">${h.toFixed(1)}</td>`).join('')}<td class="num"><b>${Math.round(pk/24*100)}%</b></td></tr>`}).join('')}
+$('#pfT').addEventListener('change',e=>{const f=e.target.dataset.p;if(!f)return;const k=+e.target.closest('tr').dataset.k,s=st();const v=e.target.value.trim();
+  if(f==='name'){const old=String(s.pfs[k].name);if(!v||s.pfs.some((p,j)=>j!==k&&String(p.name)===v)){e.target.value=old;toast('PF name must be unique and not blank');return}
+    s.trains.forEach(t=>{if(String(t.pf)===old)t.pf=v});s.pfs[k].name=v}else s.pfs[k].cap=v===''?'':+v||v;touch();refresh()});
+[['#sName','name'],['#sWef','wef'],['#sNote','note'],['#sGap','gap']].forEach(([id,f])=>$(id).addEventListener('change',e=>{st()[f]=f==='gap'?Math.max(0,+e.target.value||0):e.target.value.trim();touch();refresh()}));
+$('#sN').addEventListener('change',e=>{const s=st();let n=Math.min(40,Math.max(1,Math.round(+e.target.value||1)));
+  while(s.pfs.length<n){let k=s.pfs.length+1;while(s.pfs.some(p=>String(p.name)===String(k)))k++;s.pfs.push({name:String(k),cap:24})}
+  const gone=s.pfs.slice(n).map(p=>String(p.name)),used=s.trains.filter(t=>gone.includes(String(t.pf))).length;s.pfs.length=n;touch();refresh();
+  if(used)toast(used+' train(s) are on removed PFs — see Checks')});
+
+function renderFinder(){const s=st(),f=toMin($('#qF').value),t0=toMin($('#qT').value),d=parseDays($('#qD').value),ld=+$('#qL').value||0,g=+s.gap||0;
+  $('#qF').classList.toggle('bad',f==null);$('#qT').classList.toggle('bad',t0==null);$('#qD').classList.toggle('bad',!d);
+  if(f==null||t0==null||!d){$('#fT tbody').innerHTML='<tr><td colspan="5" class="empty">Enter valid times and days.</td></tr>';return}
+  const e=t0<=f?t0+1440:t0;
+  $('#fT tbody').innerHTML=s.pfs.map(p=>{const hit=IT.filter(x=>x.ok&&x.pf===String(p.name)&&x.d.set.some((v,k)=>v&&d.set[k])&&[-1440,0,1440].some(k=>x.s+k<e+g&&f<x.e+k+g));
+    const cap=+p.cap||0;return`<tr><td><b>${esc(p.name)}</b></td><td class="num">${esc(p.cap??'')}</td><td class="${hit.length?'busy':'free'}">${hit.length?'BUSY':'FREE'}</td><td>${cap&&ld?(ld<=cap?'Yes':'<span class="busy">No</span>'):'—'}</td><td>${hit.map(x=>esc(x.lab+' '+fmt(x.s)+'-'+fmt(x.e)+(x.d.label?' ('+x.d.label+')':''))).join('; ')}</td></tr>`}).join('')}
+['#qF','#qT','#qD','#qL'].forEach(s=>$(s).addEventListener('input',renderFinder));
+
+function renderChecks(){const go=i=>`<a data-go="${i}">${esc(IT[i].lab||'row '+(i+1))}</a>`;const out=[];
+  IT.forEach(x=>{if(!x.ok)out.push(`<div class="issue">Row ${x.i+1} ${go(x.i)}: ${esc(x.iss.join(', '))} — not drawn on chart.</div>`)});
+  IT.forEach(x=>x.clash.forEach(j=>{if(j>x.i){const y=IT[j],days=x.d.set.map((v,k)=>v&&y.d.set[k]?k+1:0).filter(Boolean);
+    out.push(`<div class="issue">PF ${esc(x.pf)}: ${go(x.i)} ${fmt(x.s)}-${fmt(x.e)} clashes with ${go(j)} ${fmt(y.s)}-${fmt(y.e)} on day(s) ${days.join(',')}.</div>`)}}));
+  IT.forEach(x=>{if(x.warn.length)out.push(`<div class="issue w">PF ${esc(x.pf)}: ${go(x.i)} — ${esc(x.warn.join(', '))}</div>`)});
+  $('#ck').innerHTML=out.length?out.join(''):'<p class="free" style="margin:0">No clashes or errors. All '+IT.length+' entries are drawn.</p>'}
+$('#ck').addEventListener('click',e=>{const i=e.target.dataset.go;if(i==null)return;tab('trains');$('#fPf').value='';$('#fQ').value='';$('#fBad').checked=false;renderTrains([+i]);const r=$(`#trT tr[data-i="${i}"]`);r&&r.scrollIntoView({block:'center'})});
+
+/* ---------- tabs, stations ---------- */
+function tab(t){$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));$$('main>section').forEach(s=>s.classList.toggle('hid',s.id!=='t-'+t));if(t==='chart'&&st())drawChart();try{localStorage.setItem('pfb.tab',t)}catch(e){}}
+$$('.tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+['#day','#zoom'].forEach(s=>$(s).addEventListener('change',drawChart));
+$('#stSel').onchange=e=>{cur=e.target.value;cache();refresh()};
+const newId=n=>String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)+'-'+Math.random().toString(36).slice(2,6);
+$('#newSt').onclick=$('#newSt2').onclick=()=>{$('#fNew').reset();$('#dlgNew').showModal()};
+$('#dlgNew').addEventListener('close',()=>{if($('#dlgNew').returnValue!=='ok')return;const name=$('#nName').value.trim();if(!name)return;const n=Math.min(40,Math.max(1,+$('#nN').value||1));
+  showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[]};cur=id;touch();refresh();tab('setup')});
+$('#dup').onclick=()=>{const s=JSON.parse(JSON.stringify(st()));s.id=newId(s.name);s.name=s.name+' (copy)';stations[s.id]=s;cur=s.id;touch();refresh();toast('Duplicated — rename it under Station & PFs')};
+let delArm=0;$('#del').onclick=async e=>{if(Date.now()-delArm>4000){delArm=Date.now();e.target.textContent='Click again to delete';setTimeout(()=>e.target.textContent='Delete station',4000);return}
+  const id=cur,bk=stations[id];delete stations[id];cur=Object.keys(stations)[0]||null;cache();refresh();e.target.textContent='Delete station';
+  if(db){try{await db.doc('stations/'+id).delete()}catch(x){}}toast('Station deleted',()=>{stations[id]=bk;cur=id;touch();refresh()})};
+
+/* ---------- import / export ---------- */
+const MIME={pdf:'application/pdf',csv:'text/csv',json:'application/json',svg:'image/svg+xml'};
+async function save(name,data,okMsg){
+  if(downloads){try{await downloads.save({filename:name,data});okMsg&&toast(okMsg)}catch(e){if(e&&e.code!=='declined')toast('Could not save file ('+(e.code||'error')+')')}return}
+  if(ARTIFACT){toast('Download is not available in this view. Open the page in claude.ai.');return}
+  const blob=data instanceof Blob?data:new Blob([data],{type:MIME[name.split('.').pop()]||'application/octet-stream'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);okMsg&&toast(okMsg)}
+const fname=ext=>(String(st().name||'station').replace(/[^\w]+/g,'_')+'_Berthing_'+(st().wef||'')+'.'+ext);
+$('#csv').onclick=()=>{const q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const rows=[['PF','Type','Arr Train','Dep Train','From','To','Days','Load','Remarks','Check']].concat(IT.map(x=>[x.t.pf,tname(x.c),x.t.arr,x.t.dep,x.t.from,x.t.to,x.t.days,x.t.load,x.t.rem,status(x)[1]]));
+  save(fname('csv'),'﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'))};
+/* station files: File System Access API where allowed (Chrome/Edge on a normal site), else download/upload */
+const handles={};let fileDirty=new Set();
+const canFS=!ARTIFACT&&'showSaveFilePicker' in window;
+function loadStation(txt){const s=JSON.parse(txt);if(!s||!Array.isArray(s.pfs)||!Array.isArray(s.trains))throw new Error('bad');
+  s.id=String(s.id||newId(s.name||'station')).replace(/[^\w.~:@+-]/g,'-').slice(0,60);s.name=String(s.name||'Station');migrate(s);stations[s.id]=s;cur=s.id;fileDirty.delete(s.id);return s}
+$('#openF').onclick=async()=>{if(canFS&&window.showOpenFilePicker){try{const [h]=await showOpenFilePicker({types:[{description:'Berthing file',accept:{'application/json':['.json']}}]});
+    const s=loadStation(await (await h.getFile()).text());handles[s.id]=h;touch();fileDirty.delete(s.id);showBanner('');refresh();toast('Opened '+h.name+' — Save file writes back to it');updFile()}catch(e){if(e&&e.name!=='AbortError')toast('That file is not a berthing file')}return}
+  $('#jsonIn').click()};
+$('#jsonIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const s=loadStation(await f.text());touch();fileDirty.delete(s.id);showBanner('');refresh();toast('Opened '+f.name)}catch(x){toast('That file is not a berthing file')}e.target.value='';updFile()};
+async function saveFile(){if(!st())return;const s=st(),txt=JSON.stringify(s,null,1);
+  if(canFS){try{let h=handles[s.id];if(!h){h=await showSaveFilePicker({suggestedName:fname('json'),types:[{description:'Berthing file',accept:{'application/json':['.json']}}]});handles[s.id]=h}
+      const w=await h.createWritable();await w.write(txt);await w.close();fileDirty.delete(s.id);updFile();toast('Saved to '+h.name);return}catch(e){if(e&&e.name==='AbortError')return}}
+  await save(fname('json'),txt,'Station file downloaded');fileDirty.delete(s.id);updFile()}
+$('#saveF').onclick=saveFile;
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveFile()}});
+function updFile(){if(db||ARTIFACT)return;const s=st();setSave(!s?'No station open':fileDirty.has(s.id)?'Unsaved to file – press Save file (Ctrl+S)':'Saved'+(handles[s.id]?' to '+handles[s.id].name:' in this browser'),!!(s&&fileDirty.has(s.id)))}
+
+$('#paste').onclick=()=>{$('#pTxt').value='';$('#dlgPaste').showModal()};
+$('#dlgPaste').addEventListener('close',()=>{if($('#dlgPaste').returnValue!=='ok')return;const txt=$('#pTxt').value;if(!txt.trim())return;
+  const lines=txt.replace(/\r/g,'').split('\n').filter(l=>l.trim());const sep=lines.some(l=>l.includes('\t'))?'\t':',';
+  const rows=lines.map(l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')));if(rows.length&&/pf|platform/i.test(rows[0][0])&&!/^\d/.test(rows[0][0]))rows.shift();
+  const add=rows.filter(r=>r.some(Boolean)).map(r=>{const k=parseKind(r[1]);
+    const o=k!=null?{pf:r[0]||'',kind:k,arr:r[2]||'',dep:r[3]||'',from:r[4],to:r[5],days:r[6],load:r[7],rem:r[8]}
+      :{pf:r[0]||'',kind:null,arr:r[1]||'',dep:r[2]||'',from:r[3],to:r[4],days:r[5],load:r[7],rem:r[8],k2:parseKind(r[6])};
+    const t={pf:o.pf,arr:String(o.arr).replace(/\s+/g,''),dep:String(o.dep).replace(/\s+/g,''),from:normTime(o.from),to:normTime(o.to),days:o.days||'Daily',load:o.load||'',rem:o.rem||''};
+    const kk=o.kind||o.k2||legacy(t);if(kk==='TO')t.kind='TO';else setKind(t,kk);return t});
+  const s=st();if(document.querySelector('input[name=pm]:checked').value==='rep'){const old=s.trains;s.trains=add;toast(add.length+' trains imported (replaced)',()=>{s.trains=old;touch();refresh()})}
+  else{s.trains=s.trains.concat(add);toast(add.length+' trains added')}touch();refresh();tab('trains')});
+
+/* ---------- PDF ---------- */
+const loadJs=u=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>no(new Error('load '+u));document.head.appendChild(s)});
+let libs=null;const PAPER={A4:[841.89,595.28],A3:[1190.55,841.89],A2:[1683.78,1190.55]};
+$('#pdf').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='Preparing…';
+  try{libs??=loadJs('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(()=>loadJs('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js'));await libs;
+    const [pw,ph]=PAPER[$('#paper').value],mg=18,sc=(pw-2*mg)/W,day=+$('#day').value,rows=layout(st(),day,IT);
+    const fixed=TOPH+HDR+RUL+FOOT,avail=(ph-2*mg)/sc-fixed,pages=[];let curp=[],h=0;
+    rows.forEach(r=>{if(curp.length&&h+r.h>avail){pages.push(curp);curp=[];h=0}curp.push(r);h+=r.h});if(curp.length)pages.push(curp);
+    const doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'pt',format:[pw,ph]});const host=$('#pdfHost');
+    for(let p=0;p<pages.length;p++){if(p)doc.addPage([pw,ph],'landscape');const {svg,H}=svgChart(st(),pages[p],{pdf:true,day,page:p+1,pages:pages.length});
+      host.innerHTML=svg;const el=host.querySelector('svg');const s2=Math.min(sc,(ph-2*mg)/H);await doc.svg(el,{x:mg,y:mg,width:W*s2,height:H*s2})}
+    host.innerHTML='';await save(fname('pdf'),doc.output('blob'),'PDF ready: '+pages.length+' sheet(s)')}
+  catch(x){console.error(x);toast('PDF could not be made here – use Download SVG and print it')}
+  b.disabled=false;b.textContent='Download PDF'};
+$('#svgDl').onclick=()=>{const day=+$('#day').value;save(fname('svg'),svgChart(st(),layout(st(),day,IT),{day}).svg.replace(/<title>[^<]*<\/title>/g,''))};
+
+/* ---------- toast ---------- */
+let tT=null;function toast(m,undo){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
+
+/* ---------- boot ---------- */
+try{const c=JSON.parse(localStorage.getItem('pfb.cache')||'null');if(c&&c.stations){stations=c.stations;cur=c.cur in stations?c.cur:Object.keys(stations)[0]||null}}catch(e){}
+if(!Object.keys(stations).length&&window.__SEED){stations={[window.__SEED.id]:window.__SEED};cur=window.__SEED.id}
+let t0='chart';try{t0=localStorage.getItem('pfb.tab')||'chart'}catch(e){}
+refresh();tab(t0);setSave(Object.keys(stations).length?'Showing saved copy…':'Connecting…');
+(async()=>{const C=window.claude;if(!C||!C.use){updFile();if(!Object.keys(stations).length)showBanner('Start with “+ New station” or “Open file”. Everything stays on this computer: work is kept in this browser and in the station file you save (Ctrl+S). Keep the .json file in your office folder / email it — that file is the master.');return}
+  C.use('downloads').then(d=>{downloads=d;if(!d){$('#pdf').title=$('#svgDl').title='Downloads not available in this view'}});
+  db=await C.use('db');if(!db){setSave('Saved in this browser only');showBanner('Shared storage is not available here, so changes stay in this browser. Use Download backup to keep a copy.');return}
+  const timer=setTimeout(()=>setSave('Can’t reach saved data yet – showing local copy',true),10000);
+  db.collection('stations').onSnapshot(snap=>{if(!snap.metadata.fromCache)clearTimeout(timer);let ch=false;
+    snap.docs.forEach(d=>{const id=d.id,j=JSON.stringify(d.data());if(dirty.has(id)||j===lastSaved[id])return;
+      if(JSON.stringify(stations[id])!==j){stations[id]=JSON.parse(j);stations[id].id=id;ch=true}lastSaved[id]=j});
+    if(!snap.metadata.fromCache){Object.keys(stations).forEach(id=>{if(!snap.docs.some(d=>d.id===id)&&lastSaved[id]){delete stations[id];ch=true}});
+      Object.keys(stations).forEach(id=>{if(!snap.docs.some(d=>d.id===id)&&!lastSaved[id])dirty.add(id)});if(dirty.size)touch()}
+    if(!cur||!stations[cur]){cur=Object.keys(stations)[0]||null;ch=true}
+    if(ch){cache();refresh()}if(!dirty.size&&!saving)setSave(readOnly?'View only':'All changes saved')},
+  e=>{clearTimeout(timer);setSave('Saved data unavailable ('+e.code+') – working locally',true)})})();
+}
+</script>
+</body>
+</html>
