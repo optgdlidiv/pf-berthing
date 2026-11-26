@@ -153,7 +153,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
       <span style="flex:1"></span><button class="btn" id="cCsv">Download count (CSV)</button></div>
     <div id="cSum" class="grid2"></div>
     <div class="tw" style="max-height:none"><table id="cT"><thead><tr><th>PF</th><th class="num">Terminating</th><th class="num">Originating</th><th class="num">of which Term → Orig (same PF)</th><th class="num">Passing</th><th class="num">EMU</th><th class="num">Passenger</th><th class="num">Total trains</th><th>Train nos.</th></tr></thead><tbody></tbody><tfoot></tfoot></table></div>
-    <p class="note">Each train no. is counted separately — <b>19337(1),20983(3,6)</b> = 2 trains. A Term → Orig row counts its arriving train as terminating and its departing train as originating. A train no. appearing in more than one row (e.g. different days) is counted once per PF and once for the station. With a day selected, only trains running that day are counted. Rows with errors (see Checks) are not counted.</p>
+    <p class="note">Each train no. is counted separately — <b>19337(1),20983(3,6)</b> = 2 trains. A Term → Orig row counts its arriving train as terminating and its departing train as originating. On each PF a train no. is counted once even if it is in several rows (e.g. different days). <b>Station total</b> = sum of the PF rows. If a train no. is on more than one PF, or is both terminating and originating, a <b>Unique train nos.</b> row is added with the reason. With a day selected, only trains running that day are counted. Rows with errors (see Checks) are not counted.</p>
   </section>
 
   <section id="t-finder" class="hid">
@@ -460,6 +460,15 @@ function renderChecks(){const go=i=>`<a data-go="${i}">${esc(IT[i].lab||'row '+(
   IT.forEach(x=>x.clash.forEach(j=>{if(j>x.i){const y=IT[j],days=x.d.set.map((v,k)=>v&&y.d.set[k]?k+1:0).filter(Boolean);
     out.push(`<div class="issue">PF ${esc(x.pf)}: ${go(x.i)} ${fmt(x.s)}-${fmt(x.e)} clashes with ${go(j)} ${fmt(y.s)}-${fmt(y.e)} on day(s) ${days.join(',')}.</div>`)}}));
   IT.forEach(x=>{if(x.warn.length)out.push(`<div class="issue w">PF ${esc(x.pf)}: ${go(x.i)} — ${esc(x.warn.join(', '))}</div>`)});
+  // same train no. on more than one PF in the same role / both terminating and originating
+  const use={};IT.filter(x=>x.ok).forEach(x=>{const put=(k,role)=>((use[k.no]??=[]).push({role,pf:x.pf,i:x.i,set:k.d?k.d.set:[1,1,1,1,1,1,1]}));
+    if(x.c==='T')x.aT.forEach(k=>put(k,'terminating'));else if(x.c==='O')x.dT.forEach(k=>put(k,'originating'));else if(x.c==='TO'){x.aT.forEach(k=>put(k,'terminating'));x.dT.forEach(k=>put(k,'originating'))}else[...x.aT,...x.dT].forEach(k=>put(k,tname(x.c).toLowerCase()))});
+  Object.entries(use).forEach(([no,u])=>{
+    const roles=[...new Set(u.map(z=>z.role))];
+    if(roles.includes('terminating')&&roles.includes('originating'))out.push(`<div class="issue w">Train ${esc(no)} is entered as both terminating (PF ${esc([...new Set(u.filter(z=>z.role==='terminating').map(z=>z.pf))].join(', '))}) and originating (PF ${esc([...new Set(u.filter(z=>z.role==='originating').map(z=>z.pf))].join(', '))}) — verify the train no. (${u.map(z=>go(z.i)).join(', ')}).</div>`);
+    roles.forEach(r=>{const z=u.filter(q=>q.role===r),pfs=[...new Set(z.map(q=>q.pf))];if(pfs.length<2)return;
+      const clashDays=[1,2,3,4,5,6,7].filter(d=>pfs.filter(pf=>z.some(q=>q.pf===pf&&q.set[d-1])).length>1);
+      out.push(`<div class="issue${clashDays.length?'':' w'}">Train ${esc(no)} is ${esc(r)} on PF ${esc(pfs.join(', '))}${clashDays.length?' on the same day(s) '+clashDays.join(',')+' — a train can use only one PF a day':' (on different days)'} (${z.map(q=>go(q.i)).join(', ')}).</div>`)})});
   $('#ck').innerHTML=out.length?out.join(''):'<p class="free" style="margin:0">No clashes or errors. All '+IT.length+' entries are drawn.</p>'}
 $('#ck').addEventListener('click',e=>{const i=e.target.dataset.go;if(i==null)return;tab('trains');$('#fPf').value='';$('#fQ').value='';$('#fBad').checked=false;renderTrains([+i]);const r=$(`#trT tr[data-i="${i}"]`);r&&r.scrollIntoView({block:'center'})});
 
@@ -615,18 +624,27 @@ function countTrains(day){const s=st(),cats=['T','O','TO','P','E','G'];
     if(x.c==='T')A.forEach(n=>add('T',n));else if(x.c==='O')D.forEach(n=>add('O',n));
     else if(x.c==='TO'){A.forEach(n=>{add('T',n);add('TO',n)});D.forEach(n=>add('O',n))}
     else [...A,...D].forEach(n=>add(x.c,n))});
-  const all=c=>new Set([...c.T,...c.O,...c.P,...c.E,...c.G]);
-  return{per,tot,all}}
-function renderCount(){if(!st())return;const day=+$('#cDay').value,{per,tot,all}=countTrains(day);
+  const all=c=>({size:c.T.size+c.O.size+c.P.size+c.E.size+c.G.size});
+  const uniq=c=>new Set([...c.T,...c.O,...c.P,...c.E,...c.G]);
+  const sum={};cats.forEach(k=>sum[k]=per.reduce((a,r)=>a+r.c[k].size,0));
+  // why unique differs from sum
+  const multi=[];['T','O','P','E','G'].forEach(k=>{const m={};per.forEach(r=>r.c[k].forEach(n=>(m[n]??=[]).push(r.pf)));
+    Object.entries(m).filter(([,v])=>v.length>1).forEach(([n,v])=>multi.push(n+' '+tname(k).toLowerCase()+' on PF '+v.join(', ')))});
+  const both=[...tot.T].filter(n=>tot.O.has(n)||tot.P.has(n)||tot.E.has(n)||tot.G.has(n)).concat([...tot.O].filter(n=>tot.P.has(n)||tot.E.has(n)||tot.G.has(n)));
+  return{per,tot,all,uniq,sum,multi,both}}
+function renderCount(){if(!st())return;const day=+$('#cDay').value,{per,tot,all,uniq,sum,multi,both}=countTrains(day);
   const n=x=>x.size,list=c=>[['T','Term'],['O','Orig'],['P','Pass'],['E','EMU'],['G','Psgr']].filter(([k])=>c[k].size).map(([k,l])=>l+': '+[...c[k]].sort().join(', ')).join(' · ');
   $('#cT tbody').innerHTML=per.map(r=>`<tr><td><b>${esc(r.pf)}</b></td><td class="num">${n(r.c.T)}</td><td class="num">${n(r.c.O)}</td><td class="num">${n(r.c.TO)}</td><td class="num">${n(r.c.P)}</td><td class="num">${n(r.c.E)}</td><td class="num">${n(r.c.G)}</td><td class="num"><b>${n(all(r.c))}</b></td><td class="note" style="min-width:260px">${esc(list(r.c))}</td></tr>`).join('');
-  $('#cT tfoot').innerHTML=`<tr><td>Station</td><td class="num">${n(tot.T)}</td><td class="num">${n(tot.O)}</td><td class="num">${n(tot.TO)}</td><td class="num">${n(tot.P)}</td><td class="num">${n(tot.E)}</td><td class="num">${n(tot.G)}</td><td class="num">${n(all(tot))}</td><td class="note">${day?'Trains running on '+DAYN[day-1]:'All days'} · each train no. counted once</td></tr>`;
+  const sumAll=sum.T+sum.O+sum.P+sum.E+sum.G,uq=uniq(tot).size,diff=sumAll!==uq||sum.T!==tot.T.size||sum.O!==tot.O.size;
+  $('#cT tfoot').innerHTML=`<tr><td>Station total</td><td class="num">${sum.T}</td><td class="num">${sum.O}</td><td class="num">${sum.TO}</td><td class="num">${sum.P}</td><td class="num">${sum.E}</td><td class="num">${sum.G}</td><td class="num">${sumAll}</td><td class="note">Sum of all PFs · ${day?'trains running on '+DAYN[day-1]:'all days'}</td></tr>`
+   +(diff?`<tr><td style="font-weight:600">Unique train nos.</td><td class="num" style="font-weight:600">${tot.T.size}</td><td class="num" style="font-weight:600">${tot.O.size}</td><td class="num" style="font-weight:600">${tot.TO.size}</td><td class="num" style="font-weight:600">${tot.P.size}</td><td class="num" style="font-weight:600">${tot.E.size}</td><td class="num" style="font-weight:600">${tot.G.size}</td><td class="num" style="font-weight:600">${uq}</td><td class="note" style="font-weight:400;color:var(--warn)">Differs from the sum because: ${esc([...multi.map(x=>x+' (counted on each PF)'),...[...new Set(both)].map(x=>x+' is both terminating and originating (counted in both columns)')].join('; '))}. See Checks.</td></tr>`:'');
   const bad=IT.filter(x=>!x.ok).length;
-  $('#cSum').innerHTML=[['Terminating',n(tot.T)],['Originating',n(tot.O)],['Term → Orig (same PF)',n(tot.TO)],['Total trains at station',n(all(tot))]].map(([l,v])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('')+(bad?`<div class="kpi" style="border-color:var(--bad)"><b style="color:var(--bad)">${bad}</b><span>row(s) with errors not counted – see Checks</span></div>`:'')}
+  $('#cSum').innerHTML=[['Terminating',sum.T],['Originating',sum.O],['Term → Orig (same PF)',sum.TO],['Total trains at station',sumAll]].map(([l,v])=>`<div class="kpi"><b>${v}</b><span>${l}</span></div>`).join('')+(bad?`<div class="kpi" style="border-color:var(--bad)"><b style="color:var(--bad)">${bad}</b><span>row(s) with errors not counted – see Checks</span></div>`:'')}
 $('#cDay').addEventListener('change',renderCount);
-$('#cCsv').onclick=()=>{if(!st())return;const day=+$('#cDay').value,{per,tot,all}=countTrains(day),q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+$('#cCsv').onclick=()=>{if(!st())return;const day=+$('#cDay').value,{per,tot,all,uniq,sum,multi,both}=countTrains(day),q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const row=(pf,c)=>[pf,c.T.size,c.O.size,c.TO.size,c.P.size,c.E.size,c.G.size,all(c).size,[...c.T].sort().join(' '),[...c.O].sort().join(' ')];
-  const rows=[[st().name+' – train count – '+(day?DAYN[day-1]+' ('+day+')':'All days')],['PF','Terminating','Originating','of which Term->Orig','Passing','EMU','Passenger','Total trains','Terminating train nos.','Originating train nos.']].concat(per.map(r=>row(r.pf,r.c)),[row('Station',tot)]);
+  const rows=[[st().name+' – train count – '+(day?DAYN[day-1]+' ('+day+')':'All days')],['PF','Terminating','Originating','of which Term->Orig','Passing','EMU','Passenger','Total trains','Terminating train nos.','Originating train nos.']].concat(per.map(r=>row(r.pf,r.c)),[['Station total (sum of PFs)',sum.T,sum.O,sum.TO,sum.P,sum.E,sum.G,sum.T+sum.O+sum.P+sum.E+sum.G],['Unique train nos. at station',tot.T.size,tot.O.size,tot.TO.size,tot.P.size,tot.E.size,tot.G.size,uniq(tot).size,[...tot.T].sort().join(' '),[...tot.O].sort().join(' ')]],
+      multi.length||both.length?[['Note: '+[...multi,...[...new Set(both)].map(x=>x+' both terminating and originating')].join('; ')]]:[]);
   save(fname('csv').replace('_Berthing_','_TrainCount_'),'﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'))};
 /* ---------- toast ---------- */
 let tT=null;function toast(m,undo,lbl='Undo'){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').textContent=lbl;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
