@@ -15,7 +15,13 @@ A single-page tool for drawing platform berthing charts at any station: trains, 
 Checks flag clashes (same PF, overlapping time, common day), bad timings and load > PF capacity. *Free PF finder* lists the free PFs for a proposed slot.
 
 ## Where the data lives
-Nothing is uploaded anywhere. Work is kept in your browser, and the **station .json file is the master copy**: keep it in the office folder or mail it to colleagues. Station files are not stored in this repository.
+- **Google Drive (recommended):** click **Drive: off** in the top bar and follow the one-time setup. It uses a small Apps Script ([`drive/Code.gs`](drive/Code.gs)) that you deploy from your own Google account. Each **Save** writes into your Drive folder **PF Berthing Charts**:
+  - `stations/<station>.json` – current data (trains, PFs, change log)
+  - `charts/<station>.svg` – picture of the current chart
+  - `versions/<station>/<date_time>_<name>.json` – a copy of **every** save; *Change log → Saved versions* lets you download any version or open it again
+  - **PF Berthing – Change log** (Google Sheet) – one row per change: when, station, who, old → new
+- **Without Drive:** work is kept in this browser; **Save** writes the station `.json` file, **Download file** gives a copy any time.
+- No berthing data is stored in this GitHub repository (it holds only the page; `.json` files are git-ignored).
 
-## Switching on GitHub Pages (one time)
-Repo → **Settings → Pages** → Source: *Deploy from a branch* → Branch `main`, folder `/ (root)` → Save. After a minute the link above works.
+## Change log
+Every edit is recorded with date-time, your name and *old → new*, e.g. `22492 [PF 1 06:00-06:30]: PF 1 → 7`. It is kept inside the station file, shown in the **Change log** tab (downloadable as CSV) and, with Drive connected, added to the Change log Google Sheet on each Save.

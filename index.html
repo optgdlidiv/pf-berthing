@@ -77,8 +77,10 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
   <h1>PF Berthing Chart</h1>
   <select id="stSel" aria-label="Station"></select>
   <button class="btn dark" id="newSt">+ New station</button>
-  <button class="btn dark" id="openF" title="Open a station file (.json)">Open file</button>
-  <button class="btn dark" id="saveF" title="Save this station to a file (Ctrl+S)">Save file</button>
+  <button class="btn pri" id="saveF" title="Save (Ctrl+S)">Save</button>
+  <button class="btn dark" id="openF" title="Open a station file (.json) from this computer">Open file</button>
+  <button class="btn dark" id="dlF" title="Download this station as a .json file">Download file</button>
+  <button class="btn dark" id="ghB" title="Store all charts in your Google Drive">Drive: off</button>
   <span class="sp"></span>
   <span class="save" id="save">Loading…</span>
   <input type="file" id="jsonIn" accept=".json,application/json" class="hid">
@@ -89,6 +91,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
   <button role="tab" data-t="setup">Station &amp; PFs</button>
   <button role="tab" data-t="finder">Free PF finder</button>
   <button role="tab" data-t="checks">Checks<span class="badge" id="bCk"></span></button>
+  <button role="tab" data-t="log">Change log<span class="badge" id="bLg" style="background:#5b6573"></span></button>
 </nav>
 <main>
   <div id="banner" class="banner hid"></div>
@@ -156,6 +159,14 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
   </section>
 
   <section id="t-checks" class="hid"><div class="panel" id="ck"></div></section>
+
+  <section id="t-log" class="hid">
+    <div class="bar"><input id="lQ" class="fld" placeholder="Search change log (train no., PF, name…)" aria-label="Search log" style="min-width:280px"><span style="flex:1"></span><button class="btn" id="lCsv">Download log (CSV)</button></div>
+    <div class="tw" style="max-height:52vh"><table id="lgT"><thead><tr><th style="width:150px">When</th><th style="width:140px">By</th><th>Change</th><th style="width:90px">Status</th></tr></thead><tbody></tbody></table></div>
+    <h3 style="margin:22px 0 6px">Saved versions on Google Drive</h3>
+    <p class="note" style="margin-top:0">Every Save is kept. Download any version as a file, or open it to make it the current chart again (then Save).</p>
+    <div class="tw" style="max-height:40vh"><table id="vT"><thead><tr><th style="width:150px">Saved</th><th>Changes</th><th style="width:290px"></th></tr></thead><tbody></tbody></table></div>
+  </section>
 </main>
 
 <dialog id="dlgNew"><form method="dialog" id="fNew">
@@ -169,6 +180,16 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
   <textarea id="pTxt" placeholder="1&#9;Terminating&#9;22492&#9;&#9;06:00&#9;06:30&#9;Daily"></textarea>
   <div class="bar" style="margin-top:10px"><label><input type="radio" name="pm" value="add" checked> Add to existing</label><label><input type="radio" name="pm" value="rep"> Replace all trains</label><span style="flex:1"></span><button class="btn pri" value="ok">Import</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
 </form></dialog>
+<dialog id="dlgGh"><form method="dialog" id="fGh">
+  <h2 style="margin:0 0 6px">Store charts in Google Drive</h2>
+  <p class="note" style="margin-top:0">Charts are saved in your own Google Drive, folder <b>PF Berthing Charts</b>: current data, a chart picture, a copy of every save, and a <b>Change log</b> Google Sheet. One-time setup (5 minutes):<br>
+  1. Open <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com</a> → New project → paste the code from <a href="https://github.com/optgdlidiv/pf-berthing/blob/main/drive/Code.gs" target="_blank" rel="noopener">drive/Code.gs</a> → change <b>KEY</b> to your own secret → Save.<br>
+  2. Deploy → New deployment → Web app → Execute as <b>Me</b> → Who has access <b>Anyone</b> → Deploy → Authorize → copy the <b>Web app URL</b>.<br>
+  3. Paste the URL and the same KEY below. The key is kept only in this browser — use Disconnect on a shared PC.</p>
+  <label class="note" style="display:block">Web app URL<input id="gUrl" class="fld" required style="width:100%;margin-top:4px" placeholder="https://script.google.com/macros/s/…/exec"></label>
+  <div class="grid2" style="margin-top:10px"><label>KEY (same as in Code.gs)<input id="gKey" class="fld" type="password" autocomplete="off"></label><label>Your name / designation (shown in change log)<input id="gName" class="fld" placeholder="e.g. Dom, TI/Data"></label></div>
+  <div class="bar" style="margin-top:12px"><button class="btn pri" value="ok">Connect</button><button class="btn danger" value="off" formnovalidate>Disconnect</button><span style="flex:1"></span><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
+</form></dialog>
 <div class="toast" id="toast"><span id="toastT"></span><button id="toastB">Undo</button></div>
 <div id="pdfHost" style="position:absolute;left:-99999px;top:0;width:10px;height:10px;overflow:hidden"></div>
 
@@ -181,6 +202,9 @@ const COL={T:'#FF0000',O:'#00B050',P:'#800000',E:'#0000FF',G:'#0000FF'};
 
 let stations={}, cur=null, db=null, downloads=null, readOnly=false;
 const ARTIFACT=!!(window.claude&&window.claude.use);
+let gcfg={url:'',key:'',name:''};
+try{Object.assign(gcfg,JSON.parse(localStorage.getItem('pfb.drive')||'{}'))}catch(e){}
+const base={},known={};const ghOn=()=>!!(gcfg.url&&gcfg.key);
 const lastSaved={}, dirty=new Set();
 
 /* ---------- parsing ---------- */
@@ -337,7 +361,11 @@ const st=()=>stations[cur];
 function cache(){try{localStorage.setItem('pfb.cache',JSON.stringify({stations,cur}))}catch(e){}}
 function setSave(t,err){const e=$('#save');e.textContent=t;e.classList.toggle('err',!!err)}
 let saveT=null,saving=false;
-function touch(){if(!cur||readOnly)return;stations[cur].updated=new Date().toISOString();dirty.add(cur);cache();
+let pend={};try{pend=JSON.parse(localStorage.getItem('pfb.pend')||'{}')}catch(e){}
+const desc=t=>{const k=code(t),l=k==='TO'?(t.arr||'?')+'/'+(t.dep||'?'):k==='O'?(t.dep||t.arr||'(no train no.)'):(t.arr||t.dep||'(no train no.)');return l+' [PF '+(t.pf||'?')+' '+(t.from||'?')+'-'+(t.to||'?')+']'};
+function logc(msg,id=cur){const s=stations[id];if(!s||!msg)return;(s.log??=[]).push({t:new Date().toISOString(),by:(gcfg.name||'').trim()||'—',m:msg});if(s.log.length>5000)s.log.splice(0,s.log.length-5000);
+  (pend[id]??=[]).push(msg);try{localStorage.setItem('pfb.pend',JSON.stringify(pend))}catch(e){}}
+function touch(msg){if(!cur||readOnly)return;if(msg)logc(msg);stations[cur].updated=new Date().toISOString();dirty.add(cur);cache();
   if(!db){fileDirty.add(cur);if(ARTIFACT)setSave('Saved in this browser only');else updFile();return}setSave('Saving…');clearTimeout(saveT);saveT=setTimeout(flush,900)}
 async function flush(){if(saving){saveT=setTimeout(flush,500);return}saving=true;
   try{for(const id of [...dirty]){dirty.delete(id);const body=stations[id];if(!body)continue;const j=JSON.stringify(body);
@@ -358,7 +386,7 @@ function refresh(){Object.values(stations).forEach(migrate);
   if(!has){$('#chart').innerHTML='';return}
   IT=derive(st());const nC=IT.filter(x=>x.clash.length).length,nB=IT.filter(x=>!x.ok).length,nW=IT.filter(x=>x.warn.length).length;
   $('#bCk').textContent=(nC+nB+nW)||'';$('#bTr').textContent=st().trains.length||'';
-  drawChart();renderTrains();renderSetup();renderFinder();renderChecks();if(!ARTIFACT)updFile()}
+  drawChart();renderTrains();renderSetup();renderFinder();renderChecks();renderLog();if(!ARTIFACT)updFile()}
 function drawChart(){const day=+$('#day').value;const rows=layout(st(),day,IT);const {svg,H}=svgChart(st(),rows,{day});
   const box=$('#chart');box.innerHTML=svg;const el=box.querySelector('svg');const z=$('#zoom').value;
   if(z==='fit'){el.style.width='100%';el.style.height='auto'}else{el.style.width=W*+z+'px';el.style.height=H*+z+'px'}}
@@ -381,14 +409,17 @@ function renderTrains(hl=[]){
 <td>${inp('arr',76,'',k==='O',k==='O'?'—':sing?'Train no.':'')}</td><td>${inp('dep',76,'',k!=='O'&&k!=='TO','—')}</td><td>${inp('from',64,x.s==null&&t.from!==''?'bad':'')}</td><td>${inp('to',64,toMin(t.to)==null&&t.to!==''?'bad':'')}</td><td>${x.dIgn?`<input data-f="days" value="${esc(t.days)}" style="min-width:80px;color:var(--mute);text-decoration:line-through" title="Ignored – days are taken from the train no. brackets" aria-label="days">`:inp('days',80,!x.d?'bad':'',false,'Daily')}</td>
 <td>${inp('load',48)}</td><td>${inp('rem',150)}</td><td class="st ${c}">${esc(m)}</td><td><button class="x" data-del="${x.i}" aria-label="Delete row">×</button></td></tr>`}).join('')||`<tr><td colspan="12" class="empty">No trains${q||fp.value||bad?' match the filter':' yet — add or paste from Excel'}.</td></tr>`}
 $('#trT').addEventListener('change',e=>{const f=e.target.dataset.f;if(!f)return;const i=+e.target.closest('tr').dataset.i;let v=e.target.value.trim();
-  if(f==='kind'){setKind(st().trains[i],v);touch();refresh();return}
+  const t=st().trains[i],before=desc(t);
+  if(f==='kind'){const o=code(t);setKind(t,v);touch(before+': Type '+tname(o)+' → '+tname(v));refresh();return}
   if(f==='from'||f==='to')v=normTime(v);if(f==='arr'||f==='dep')v=v.replace(/\s+/g,'');
-  st().trains[i][f]=v;touch();refresh()});
-$('#trT').addEventListener('click',e=>{const d=e.target.dataset.del;if(d==null)return;const i=+d;const row=st().trains.splice(i,1)[0];touch();refresh();
-  toast('Train '+(row.arr||row.dep||'row')+' deleted',()=>{st().trains.splice(i,0,row);touch();refresh()})});
+  const old=String(t[f]??'');if(old===v){refresh();return}t[f]=v;
+  const FN={pf:'PF',arr:'Arr. train',dep:'Dep. train',from:'PF from',to:'PF to',days:'Days',load:'Load',rem:'Remarks'}[f]||f;
+  touch(before+': '+FN+' '+(old||'—')+' → '+(v||'—'));refresh()});
+$('#trT').addEventListener('click',e=>{const d=e.target.dataset.del;if(d==null)return;const i=+d;const row=st().trains.splice(i,1)[0];touch('Deleted '+desc(row));refresh();
+  toast('Train '+(row.arr||row.dep||'row')+' deleted',()=>{st().trains.splice(i,0,row);touch('Undo delete: restored '+desc(row));refresh()})});
 ['#fPf','#fBad'].forEach(s=>$(s).addEventListener('change',()=>renderTrains()));$('#fQ').addEventListener('input',()=>renderTrains());
-$('#addRow').onclick=()=>{const pf=$('#fPf').value||'';st().trains.unshift({pf,kind:'T',arr:'',dep:'',from:'',to:'',days:'Daily',load:'',rem:''});touch();refresh();const r=$('#trT tbody tr');r&&r.querySelector('select').focus()};
-$('#sortRows').onclick=()=>{const s=st(),ord=s.pfs.map(p=>String(p.name));s.trains.sort((a,b)=>{const pa=ord.indexOf(String(a.pf)),pb=ord.indexOf(String(b.pf));return (pa<0?999:pa)-(pb<0?999:pb)||(toMin(a.from)??9999)-(toMin(b.from)??9999)});touch();refresh()};
+$('#addRow').onclick=()=>{const pf=$('#fPf').value||'';st().trains.unshift({pf,kind:'T',arr:'',dep:'',from:'',to:'',days:'Daily',load:'',rem:''});touch('Added a new train row'+(pf?' on PF '+pf:''));refresh();const r=$('#trT tbody tr');r&&r.querySelector('select').focus()};
+$('#sortRows').onclick=()=>{const s=st(),ord=s.pfs.map(p=>String(p.name));s.trains.sort((a,b)=>{const pa=ord.indexOf(String(a.pf)),pb=ord.indexOf(String(b.pf));return (pa<0?999:pa)-(pb<0?999:pb)||(toMin(a.from)??9999)-(toMin(b.from)??9999)});touch('Sorted train list by PF & time (no timing changed)');refresh()};
 
 function renderSetup(){const s=st();$('#sName').value=s.name||'';$('#sWef').value=s.wef||'';$('#sNote').value=s.note||'';$('#sN').value=s.pfs.length;$('#sGap').value=s.gap||0;
   $('#pfT tbody').innerHTML=s.pfs.map((p,k)=>{const mine=IT.filter(x=>x.ok&&x.pf===String(p.name));
@@ -396,11 +427,13 @@ function renderSetup(){const s=st();$('#sName').value=s.name||'';$('#sWef').valu
     return`<tr data-k="${k}"><td><input data-p="name" value="${esc(p.name)}" style="min-width:70px" aria-label="PF name"></td><td><input data-p="cap" value="${esc(p.cap??'')}" style="min-width:70px" aria-label="Capacity"></td><td class="num">${mine.length}</td>${hrs.map(h=>`<td class="num">${h.toFixed(1)}</td>`).join('')}<td class="num"><b>${Math.round(pk/24*100)}%</b></td></tr>`}).join('')}
 $('#pfT').addEventListener('change',e=>{const f=e.target.dataset.p;if(!f)return;const k=+e.target.closest('tr').dataset.k,s=st();const v=e.target.value.trim();
   if(f==='name'){const old=String(s.pfs[k].name);if(!v||s.pfs.some((p,j)=>j!==k&&String(p.name)===v)){e.target.value=old;toast('PF name must be unique and not blank');return}
-    s.trains.forEach(t=>{if(String(t.pf)===old)t.pf=v});s.pfs[k].name=v}else s.pfs[k].cap=v===''?'':+v||v;touch();refresh()});
-[['#sName','name'],['#sWef','wef'],['#sNote','note'],['#sGap','gap']].forEach(([id,f])=>$(id).addEventListener('change',e=>{st()[f]=f==='gap'?Math.max(0,+e.target.value||0):e.target.value.trim();touch();refresh()}));
+    s.trains.forEach(t=>{if(String(t.pf)===old)t.pf=v});s.pfs[k].name=v;touch('PF '+old+' renamed to '+v)}
+  else{const o=s.pfs[k].cap;s.pfs[k].cap=v===''?'':+v||v;touch('PF '+s.pfs[k].name+' capacity '+(o||'—')+' → '+(v||'—'))}refresh()});
+[['#sName','name'],['#sWef','wef'],['#sNote','note'],['#sGap','gap']].forEach(([id,f])=>$(id).addEventListener('change',e=>{const o=st()[f];st()[f]=f==='gap'?Math.max(0,+e.target.value||0):e.target.value.trim();
+  touch({name:'Station name',wef:'With effect from',note:'Heading note',gap:'Clearance gap (min)'}[f]+' '+(o||'—')+' → '+(st()[f]||'—'));refresh()}));
 $('#sN').addEventListener('change',e=>{const s=st();let n=Math.min(40,Math.max(1,Math.round(+e.target.value||1)));
   while(s.pfs.length<n){let k=s.pfs.length+1;while(s.pfs.some(p=>String(p.name)===String(k)))k++;s.pfs.push({name:String(k),cap:24})}
-  const gone=s.pfs.slice(n).map(p=>String(p.name)),used=s.trains.filter(t=>gone.includes(String(t.pf))).length;s.pfs.length=n;touch();refresh();
+  const gone=s.pfs.slice(n).map(p=>String(p.name)),used=s.trains.filter(t=>gone.includes(String(t.pf))).length,o=s.pfs.length;s.pfs.length=n;touch('No. of PFs '+o+' → '+n);refresh();
   if(used)toast(used+' train(s) are on removed PFs — see Checks')});
 
 function renderFinder(){const s=st(),f=toMin($('#qF').value),t0=toMin($('#qT').value),d=parseDays($('#qD').value),ld=+$('#qL').value||0,g=+s.gap||0;
@@ -420,18 +453,20 @@ function renderChecks(){const go=i=>`<a data-go="${i}">${esc(IT[i].lab||'row '+(
 $('#ck').addEventListener('click',e=>{const i=e.target.dataset.go;if(i==null)return;tab('trains');$('#fPf').value='';$('#fQ').value='';$('#fBad').checked=false;renderTrains([+i]);const r=$(`#trT tr[data-i="${i}"]`);r&&r.scrollIntoView({block:'center'})});
 
 /* ---------- tabs, stations ---------- */
-function tab(t){$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));$$('main>section').forEach(s=>s.classList.toggle('hid',s.id!=='t-'+t));if(t==='chart'&&st())drawChart();try{localStorage.setItem('pfb.tab',t)}catch(e){}}
+function tab(t){$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));$$('main>section').forEach(s=>s.classList.toggle('hid',s.id!=='t-'+t));if(t==='chart'&&st())drawChart();if(t==='log'&&ghOn()&&verFor!==cur)loadVersions();try{localStorage.setItem('pfb.tab',t)}catch(e){}}
 $$('.tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
 ['#day','#zoom'].forEach(s=>$(s).addEventListener('change',drawChart));
-$('#stSel').onchange=e=>{cur=e.target.value;cache();refresh()};
+$('#stSel').onchange=e=>{cur=e.target.value;cache();refresh();verFor=null;if(!$('#t-log').classList.contains('hid'))loadVersions()};
 const newId=n=>String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)+'-'+Math.random().toString(36).slice(2,6);
 $('#newSt').onclick=$('#newSt2').onclick=()=>{$('#fNew').reset();$('#dlgNew').showModal()};
 $('#dlgNew').addEventListener('close',()=>{if($('#dlgNew').returnValue!=='ok')return;const name=$('#nName').value.trim();if(!name)return;const n=Math.min(40,Math.max(1,+$('#nN').value||1));
-  showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[]};cur=id;touch();refresh();tab('setup')});
-$('#dup').onclick=()=>{const s=JSON.parse(JSON.stringify(st()));s.id=newId(s.name);s.name=s.name+' (copy)';stations[s.id]=s;cur=s.id;touch();refresh();toast('Duplicated — rename it under Station & PFs')};
+  showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[],log:[]};cur=id;touch('Station created with '+n+' PFs');refresh();tab('setup')});
+$('#dup').onclick=()=>{const s=JSON.parse(JSON.stringify(st()));const from=s.name;s.id=newId(s.name);s.name=s.name+' (copy)';s.log=[];stations[s.id]=s;cur=s.id;touch('Duplicated from '+from);refresh();toast('Duplicated — rename it under Station & PFs')};
 let delArm=0;$('#del').onclick=async e=>{if(Date.now()-delArm>4000){delArm=Date.now();e.target.textContent='Click again to delete';setTimeout(()=>e.target.textContent='Delete station',4000);return}
   const id=cur,bk=stations[id];delete stations[id];cur=Object.keys(stations)[0]||null;cache();refresh();e.target.textContent='Delete station';
-  if(db){try{await db.doc('stations/'+id).delete()}catch(x){}}toast('Station deleted',()=>{stations[id]=bk;cur=id;touch();refresh()})};
+  if(db){try{await db.doc('stations/'+id).delete()}catch(x){}}
+  if(ghOn()&&known[id]){try{await ghDelete(id,bk);toast('Station deleted (older versions stay in the Drive versions folder)')}catch(x){toast('Deleted here, but Drive delete failed: '+x.message)}return}
+  toast('Station deleted',()=>{stations[id]=bk;cur=id;touch('Undo delete station');refresh()})};
 
 /* ---------- import / export ---------- */
 const MIME={pdf:'application/pdf',csv:'text/csv',json:'application/json',svg:'image/svg+xml'};
@@ -451,16 +486,21 @@ const canFS=!ARTIFACT&&'showSaveFilePicker' in window;
 function loadStation(txt){const s=JSON.parse(txt);if(!s||!Array.isArray(s.pfs)||!Array.isArray(s.trains))throw new Error('bad');
   s.id=String(s.id||newId(s.name||'station')).replace(/[^\w.~:@+-]/g,'-').slice(0,60);s.name=String(s.name||'Station');migrate(s);stations[s.id]=s;cur=s.id;fileDirty.delete(s.id);return s}
 $('#openF').onclick=async()=>{if(canFS&&window.showOpenFilePicker){try{const [h]=await showOpenFilePicker({types:[{description:'Berthing file',accept:{'application/json':['.json']}}]});
-    const s=loadStation(await (await h.getFile()).text());handles[s.id]=h;touch();fileDirty.delete(s.id);showBanner('');refresh();toast('Opened '+h.name+' — Save file writes back to it');updFile()}catch(e){if(e&&e.name!=='AbortError')toast('That file is not a berthing file')}return}
+    const s=loadStation(await (await h.getFile()).text());handles[s.id]=h;touch('Opened from file '+h.name);fileDirty.delete(s.id);showBanner('');refresh();toast('Opened '+h.name+' — Save file writes back to it');updFile()}catch(e){if(e&&e.name!=='AbortError')toast('That file is not a berthing file')}return}
   $('#jsonIn').click()};
-$('#jsonIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const s=loadStation(await f.text());touch();fileDirty.delete(s.id);showBanner('');refresh();toast('Opened '+f.name)}catch(x){toast('That file is not a berthing file')}e.target.value='';updFile()};
+$('#jsonIn').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const s=loadStation(await f.text());touch('Opened from file '+f.name);fileDirty.delete(s.id);showBanner('');refresh();toast('Opened '+f.name)}catch(x){toast('That file is not a berthing file')}e.target.value='';updFile()};
 async function saveFile(){if(!st())return;const s=st(),txt=JSON.stringify(s,null,1);
   if(canFS){try{let h=handles[s.id];if(!h){h=await showSaveFilePicker({suggestedName:fname('json'),types:[{description:'Berthing file',accept:{'application/json':['.json']}}]});handles[s.id]=h}
       const w=await h.createWritable();await w.write(txt);await w.close();fileDirty.delete(s.id);updFile();toast('Saved to '+h.name);return}catch(e){if(e&&e.name==='AbortError')return}}
   await save(fname('json'),txt,'Station file downloaded');fileDirty.delete(s.id);updFile()}
-$('#saveF').onclick=saveFile;
-addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveFile()}});
-function updFile(){if(db||ARTIFACT)return;const s=st();setSave(!s?'No station open':fileDirty.has(s.id)?'Unsaved to file – press Save file (Ctrl+S)':'Saved'+(handles[s.id]?' to '+handles[s.id].name:' in this browser'),!!(s&&fileDirty.has(s.id)))}
+async function saveNow(){if(!st())return;if(ghOn())return ghSave(cur);await saveFile();clearPend(cur)}
+$('#saveF').onclick=saveNow;
+$('#dlF').onclick=()=>st()&&save(fname('json'),JSON.stringify(st(),null,1),'Station file downloaded');
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();saveNow()}});
+function updFile(){if(db||ARTIFACT)return;const s=st(),n=s?(pend[s.id]||[]).length:0;
+  if(ghOn()){setSave(!s?'No station open':n?n+' unsaved change(s) – press Save (Ctrl+S)':'Saved to Drive'+(s.savedAt?' '+new Date(s.savedAt).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}):''),!!n);return}
+  setSave(!s?'No station open':fileDirty.has(s.id)?'Unsaved to file – press Save (Ctrl+S)':'Saved'+(handles[s.id]?' to '+handles[s.id].name:' in this browser'),!!(s&&fileDirty.has(s.id)))}
+function clearPend(id){if(pend[id]){pend[id]=[];try{localStorage.setItem('pfb.pend',JSON.stringify(pend))}catch(e){}}refresh()}
 
 $('#paste').onclick=()=>{$('#pTxt').value='';$('#dlgPaste').showModal()};
 $('#dlgPaste').addEventListener('close',()=>{if($('#dlgPaste').returnValue!=='ok')return;const txt=$('#pTxt').value;if(!txt.trim())return;
@@ -471,8 +511,10 @@ $('#dlgPaste').addEventListener('close',()=>{if($('#dlgPaste').returnValue!=='ok
       :{pf:r[0]||'',kind:null,arr:r[1]||'',dep:r[2]||'',from:r[3],to:r[4],days:r[5],load:r[7],rem:r[8],k2:parseKind(r[6])};
     const t={pf:o.pf,arr:String(o.arr).replace(/\s+/g,''),dep:String(o.dep).replace(/\s+/g,''),from:normTime(o.from),to:normTime(o.to),days:o.days||'Daily',load:o.load||'',rem:o.rem||''};
     const kk=o.kind||o.k2||legacy(t);if(kk==='TO')t.kind='TO';else setKind(t,kk);return t});
-  const s=st();if(document.querySelector('input[name=pm]:checked').value==='rep'){const old=s.trains;s.trains=add;toast(add.length+' trains imported (replaced)',()=>{s.trains=old;touch();refresh()})}
-  else{s.trains=s.trains.concat(add);toast(add.length+' trains added')}touch();refresh();tab('trains')});
+  const s=st(),rep=document.querySelector('input[name=pm]:checked').value==='rep';
+  if(rep){const old=s.trains;s.trains=add;toast(add.length+' trains imported (replaced)',()=>{s.trains=old;touch('Undo Excel import: previous '+old.length+' trains restored');refresh()})}
+  else{s.trains=s.trains.concat(add);toast(add.length+' trains added')}
+  touch((rep?'Replaced all trains with ':'Added ')+add.length+' trains from Excel paste: '+add.slice(0,40).map(desc).join('; ')+(add.length>40?' …':''));refresh();tab('trains')});
 
 /* ---------- PDF ---------- */
 const loadJs=u=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>no(new Error('load '+u));document.head.appendChild(s)});
@@ -490,15 +532,78 @@ $('#pdf').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='Prep
   b.disabled=false;b.textContent='Download PDF'};
 $('#svgDl').onclick=()=>{const day=+$('#day').value;save(fname('svg'),svgChart(st(),layout(st(),day,IT),{day}).svg.replace(/<title>[^<]*<\/title>/g,''))};
 
+/* ---------- Google Drive storage via your Apps Script web app ---------- */
+let driveFolder='';
+async function dget(params){const u=gcfg.url+(gcfg.url.includes('?')?'&':'?')+new URLSearchParams({...params,key:gcfg.key});
+  let r;try{r=await fetch(u,{cache:'no-store'})}catch(e){throw new Error('Drive script not reachable – check the Web app URL / internet')}
+  let j;try{j=await r.json()}catch(e){throw new Error('Drive script did not answer properly – is it deployed with access “Anyone”?')}
+  if(j.error)throw new Error(j.error);return j}
+async function dpost(body){let r;try{r=await fetch(gcfg.url,{method:'POST',body:JSON.stringify({...body,key:gcfg.key})})}catch(e){throw new Error('Drive script not reachable')}
+  let j;try{j=await r.json()}catch(e){throw new Error('Drive script did not answer properly')}if(j.error)throw new Error(j.error);return j}
+function ghBtn(){const b=$('#ghB');b.textContent=ghOn()?'Drive: connected':'Drive: off';b.title=ghOn()?'Saving to Google Drive folder “PF Berthing Charts”':'Store all charts in your Google Drive'}
+async function ghConnect(){setSave('Connecting to Google Drive…');const j=await dget({action:'list'});driveFolder=j.folder||'';showBanner('');
+  let n=0,kept=[];
+  for(const x of j.stations||[]){const id=x.id;known[id]=true;base[id]=x.body.savedAt||'';
+    if((pend[id]||[]).length&&stations[id]){kept.push(stations[id].name);continue}
+    const sj=x.body;sj.id=id;migrate(sj);stations[id]=sj;n++}
+  const local=Object.keys(stations).filter(id=>!known[id]);
+  if(!cur||!stations[cur])cur=Object.keys(stations)[0]||null;cache();refresh();ghBtn();
+  toast('Google Drive connected: '+n+' station(s) loaded'+(kept.length?'; kept your unsaved edits for '+kept.join(', '):'')+(local.length?'; '+local.length+' station(s) from this computer will upload on Save':''));
+  loadVersions()}
+async function ghSave(id,force){const s=stations[id];if(!s)return;const np=(pend[id]||[]).length,changes=(s.log||[]).slice(-np),msgs=changes.map(c=>c.m);
+  const who=(gcfg.name||'').trim();const prev=s.savedAt,prevBy=s.savedBy;s.savedAt=new Date().toISOString();s.savedBy=who;
+  const message=s.name+': '+(np?np+' change(s)':'saved')+(who?' – '+who:'')+(np?'\n'+msgs.map(m=>'- '+m).join('\n'):'');
+  setSave('Saving to Google Drive…');$('#saveF').disabled=true;
+  try{let svg='';try{svg=svgChart(s,layout(s,0,derive(s)),{day:0}).svg.replace(/<title>[^<]*<\/title>/g,'')}catch(e){}
+    const r=await dpost({action:'save',id,station:s,svg,message,by:who,base:base[id]||'',force:!!force,changes});
+    if(r.conflict){s.savedAt=prev;s.savedBy=prevBy;$('#saveF').disabled=false;setSave('Not saved – newer version on Drive',true);
+      toast(s.name+' was saved on Drive by '+(r.by||'someone')+' after you opened it.',()=>ghSave(id,true),'Overwrite with mine');return}
+    base[id]=s.savedAt;known[id]=true;clearPend(id);cache();updFile();toast('Saved to Google Drive'+(np?' – '+np+' change(s) logged':''));loadVersions()}
+  catch(e){s.savedAt=prev;s.savedBy=prevBy;setSave('Not saved – '+e.message,true);toast('Drive save failed: '+e.message+'. Your work is still in this browser; use Download file as a backup.')}
+  $('#saveF').disabled=false}
+async function ghDelete(id,s){await dpost({action:'delete',id,name:s.name,by:gcfg.name||''});delete known[id];delete base[id]}
+let verFor=null;
+async function loadVersions(){const tb=$('#vT tbody');if(!st()){tb.innerHTML='';return}
+  if(!ghOn()){tb.innerHTML='<tr><td colspan="3" class="empty">Connect Google Drive (top bar) to keep every saved version.</td></tr>';return}
+  const id=cur;verFor=id;if(!known[id]){tb.innerHTML='<tr><td colspan="3" class="empty">Not on Drive yet – press Save.</td></tr>';return}
+  tb.innerHTML='<tr><td colspan="3" class="empty">Loading versions…</td></tr>';
+  try{const j=await dget({action:'versions',id});if(verFor!==id)return;
+    tb.innerHTML=(j.versions||[]).map(v=>{const m=String(v.msg||v.name).split('\n'),d=new Date(v.time),rest=m.slice(1).filter(x=>x.trim());
+      return`<tr><td>${esc(d.toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}))}</td><td><b>${esc(m[0])}</b>${rest.length?`<details><summary class="note">show changes</summary><div class="note">${rest.map(esc).join('<br>')}</div></details>`:''}</td>
+      <td style="white-space:nowrap"><button class="btn" data-vd="${esc(v.vid)}">Download</button> <button class="btn" data-vo="${esc(v.vid)}" data-vt="${esc(d.toISOString())}">Open this version</button></td></tr>`}).join('')||'<tr><td colspan="3" class="empty">No versions yet.</td></tr>';
+    if(driveFolder)tb.insertAdjacentHTML('beforeend',`<tr><td colspan="3" class="note">All files are in your Drive folder <a href="${esc(driveFolder)}" target="_blank" rel="noopener">PF Berthing Charts</a> (with the “PF Berthing – Change log” sheet).</td></tr>`)}
+  catch(e){tb.innerHTML=`<tr><td colspan="3" class="empty">${esc(e.message)}</td></tr>`}}
+$('#vT').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;const vid=b.dataset.vd||b.dataset.vo;const id=cur;
+  try{const j=await dget({action:'version',id,vid});const txt=JSON.stringify(j.body,null,1);
+    if(b.dataset.vd){save(String(j.body.name||id).replace(/[^\w]+/g,'_')+'_version_'+String(b.closest('tr').cells[0].textContent).replace(/[^\d]+/g,'')+'.json',txt,'Version downloaded');return}
+    const old=j.body;old.id=id;migrate(old);old.log=(stations[id].log||[]).slice();old.savedAt=stations[id].savedAt;old.savedBy=stations[id].savedBy;stations[id]=old;cur=id;
+    touch('Opened saved version of '+new Date(b.dataset.vt).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'})+' as current – press Save to keep it');refresh();tab('chart');toast('Older version opened – press Save to make it current on Drive')}
+  catch(x){toast('Could not load that version: '+x.message)}});
+function renderLog(){const s=st();if(!s)return;const q=$('#lQ').value.trim().toLowerCase(),np=(pend[s.id]||[]).length,L=(s.log||[]);
+  $('#bLg').textContent=np||'';
+  const rows=L.map((x,k)=>({...x,k})).reverse().filter(x=>!q||(x.m+' '+x.by).toLowerCase().includes(q)).slice(0,1500);
+  $('#lgT tbody').innerHTML=rows.map(x=>`<tr><td style="white-space:nowrap">${esc(new Date(x.t).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}))}</td><td>${esc(x.by)}</td><td>${esc(x.m)}</td><td class="st ${x.k>=L.length-np?'warn':'ok'}">${x.k>=L.length-np?'Unsaved':'Saved'}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No changes recorded yet.</td></tr>'}
+$('#lQ').addEventListener('input',renderLog);
+$('#lCsv').onclick=()=>{const s=st();if(!s)return;const q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  save(fname('csv').replace('_Berthing_','_ChangeLog_'),'﻿'+[['Date & time','By','Change']].concat((s.log||[]).map(x=>[new Date(x.t).toLocaleString('en-GB'),x.by,x.m])).map(r=>r.map(q).join(',')).join('\r\n'))};
+$('#ghB').onclick=()=>{$('#gUrl').value=gcfg.url||'';$('#gName').value=gcfg.name||'';$('#gKey').value=gcfg.key?'••••••••':'';$('#dlgGh').showModal()};
+$('#dlgGh').addEventListener('close',async()=>{const v=$('#dlgGh').returnValue;if(v==='cancel'||!v)return;
+  if(v==='off'){gcfg.key='';try{localStorage.setItem('pfb.drive',JSON.stringify(gcfg))}catch(e){}Object.keys(known).forEach(k=>delete known[k]);ghBtn();refresh();loadVersions();toast('Drive disconnected – key removed from this browser');return}
+  gcfg.url=$('#gUrl').value.trim();gcfg.name=$('#gName').value.trim();const k=$('#gKey').value.trim();if(k&&!/^•+$/.test(k))gcfg.key=k;
+  try{localStorage.setItem('pfb.drive',JSON.stringify(gcfg))}catch(e){}
+  if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(gcfg.url)){toast('Paste the Web app URL from Apps Script (starts with https://script.google.com/)');return}
+  if(!gcfg.key){toast('Enter the KEY you set in Code.gs');return}
+  try{await ghConnect()}catch(e){setSave('Drive: '+e.message,true);toast('Could not connect: '+e.message)}});
 /* ---------- toast ---------- */
-let tT=null;function toast(m,undo){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
+let tT=null;function toast(m,undo,lbl='Undo'){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').textContent=lbl;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
 
 /* ---------- boot ---------- */
 try{const c=JSON.parse(localStorage.getItem('pfb.cache')||'null');if(c&&c.stations){stations=c.stations;cur=c.cur in stations?c.cur:Object.keys(stations)[0]||null}}catch(e){}
 if(!Object.keys(stations).length&&window.__SEED){stations={[window.__SEED.id]:window.__SEED};cur=window.__SEED.id}
 let t0='chart';try{t0=localStorage.getItem('pfb.tab')||'chart'}catch(e){}
 refresh();tab(t0);setSave(Object.keys(stations).length?'Showing saved copy…':'Connecting…');
-(async()=>{const C=window.claude;if(!C||!C.use){updFile();if(!Object.keys(stations).length)showBanner('Start with “+ New station” or “Open file”. Everything stays on this computer: work is kept in this browser and in the station file you save (Ctrl+S). Keep the .json file in your office folder / email it — that file is the master.');return}
+ghBtn();if(ghOn()&&!ARTIFACT){showBanner('');ghConnect().catch(e=>{setSave('Drive: '+e.message,true);toast('Google Drive not reachable – working in this browser. '+e.message)})}
+(async()=>{const C=window.claude;if(!C||!C.use){updFile();if(ghOn())return;if(!Object.keys(stations).length)showBanner('Start with “+ New station” or “Open file”. To keep every chart and every version safely in your Google Drive, click “Drive: off” in the top bar (one-time setup).');return}
   C.use('downloads').then(d=>{downloads=d;if(!d){$('#pdf').title=$('#svgDl').title='Downloads not available in this view'}});
   db=await C.use('db');if(!db){setSave('Saved in this browser only');showBanner('Shared storage is not available here, so changes stay in this browser. Use Download backup to keep a copy.');return}
   const timer=setTimeout(()=>setSave('Can’t reach saved data yet – showing local copy',true),10000);
