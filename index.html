@@ -429,7 +429,7 @@ function refresh(){Object.values(stations).forEach(migrate);
   if(!has){$('#chart').innerHTML='';return}
   IT=derive(st());const nC=IT.filter(x=>x.clash.length).length,nB=IT.filter(x=>!x.ok).length,nW=IT.filter(x=>x.warn.length).length;
   $('#bCk').textContent=(nC+nB+nW)||'';$('#bTr').textContent=st().trains.length||'';
-  LT=deriveL(st());const nL=LT.it.filter(x=>!x.ok||x.clash.length).length;$('#bLn').textContent=st().occs.length||'';$('#bCk').textContent=(nC+nB+nW+nL)||'';
+  LT=deriveL(st());crossPF();const nL=LT.it.filter(x=>!x.ok||x.clash.length).length+Object.keys(XW).length;$('#bLn').textContent=st().occs.length||'';$('#bCk').textContent=(nC+nB+nW+nL)||'';
   applyVis();drawChart();renderTrains();renderSetup();renderLineSetup();renderLines();renderFinder();renderChecks();renderLog();renderCount();if(!ARTIFACT)updFile()}
 function drawChart(){const day=+$('#day').value,ln=$('#cType').value==='ln';const {svg,H}=ln?svgLines(st(),layoutL(st(),LT),{}):svgChart(st(),layout(st(),day,IT),{day});
   const box=$('#chart');box.innerHTML=svg;const el=box.querySelector('svg');const z=$('#zoom').value;
@@ -764,12 +764,13 @@ function svgLines(st,blocks,o){
   const now=new Date();
   P(`<text x="${M}" y="${H-8}" font-size="9" fill="#555">${esc('Generated '+now.toLocaleDateString('en-GB')+' '+now.toTimeString().slice(0,5)+' · Bars drawn to the exact minute; a stay past midnight continues in the next day\'s row. HRS USED = hours the line is occupied in that day row.')}</text>`);
   P('</svg>');return{svg:out.join(''),H}}
-function lstatus(x){if(!x.ok)return['bad',x.iss.join(', ')];if(x.clash.length){const c=[...new Map(x.clash.map(c=>[c.j,c])).values()];return['bad','CLASH with '+c.map(c=>LT.it[c.j].lab+' ('+DAYN[c.d]+')').join(', ')]}return['ok','OK']}
+function lstatus(x){if(!x.ok)return['bad',x.iss.join(', ')];if(x.clash.length){const c=[...new Map(x.clash.map(c=>[c.j,c])).values()];return['bad','CLASH with '+c.map(c=>LT.it[c.j].lab+' ('+DAYN[c.d]+')').join(', ')]}
+  if(XW[x.i])return['warn','Still on PF at this time: '+XW[x.i].map(z=>z.no+' PF '+z.pf+' till '+fmt(IT[z.pfi].e)).join(', ')];return['ok','OK']}
 const ldesc=o=>(o.train||'(no train no.)')+' ['+(o.line||'?')+' '+(actOf(o.act)[1])+' '+(o.from||'?')+'-'+(o.to||'?')+']';
 function renderLines(hl=[]){const s=st();if(!s)return;const f=$('#lnF'),pv=f.value;
   f.innerHTML='<option value="">All</option>'+s.lines.map(l=>`<option${String(l.name)===pv?' selected':''}>${esc(l.name)}</option>`).join('');
   const q=$('#lnQ').value.trim().toLowerCase(),bad=$('#lnBad').checked,lo=s.lines.map(l=>`<option>${esc(l.name)}</option>`).join('');
-  const rows=LT.it.filter(x=>(!f.value||x.line===f.value)&&(!q||[x.o.train,x.o.rem].join(' ').toLowerCase().includes(q))&&(!bad||!x.ok||x.clash.length));
+  const rows=LT.it.filter(x=>(!f.value||x.line===f.value)&&(!q||[x.o.train,x.o.rem].join(' ').toLowerCase().includes(q))&&(!bad||!x.ok||x.clash.length||XW[x.i]));
   $('#lnT tbody').innerHTML=rows.map(x=>{const o=x.o,[c,m]=lstatus(x);const inp=(k,w,cls='',ph='')=>`<input data-g="${k}" value="${esc(o[k]??'')}" style="min-width:${w}px" class="${cls}" aria-label="${k}" placeholder="${ph}">`;
     const ac=actOf(o.act);
     return`<tr data-i="${x.i}"${hl.includes(x.i)?' class="hl"':''}><td class="num" style="color:var(--mute)">${x.i+1}</td>
@@ -817,6 +818,7 @@ function lineChecks(){const out=[],go=i=>`<a data-lgo="${i}">${esc(LT.it[i].lab|
   LT.it.forEach(x=>{if(!x.ok)out.push(`<div class="issue">Line occupation row ${x.i+1} ${go(x.i)}: ${esc(x.iss.join(', '))} — not drawn on chart.</div>`)});
   const seen=new Set();LT.it.forEach(x=>x.clash.forEach(c=>{const key=[Math.min(x.i,c.j),Math.max(x.i,c.j),c.d].join('|');if(seen.has(key))return;seen.add(key);
     const y=LT.it[c.j];out.push(`<div class="issue">${esc(x.line)} on ${DAYN[c.d]} (${c.d+1}): ${go(x.i)} ${actOf(x.o.act)[1]} ${fmt(x.s)}-${fmt(x.e)} overlaps ${go(c.j)} ${actOf(y.o.act)[1]} ${fmt(y.s)}-${fmt(y.e)}.</div>`)}));
+  Object.entries(XW).forEach(([i,L])=>L.forEach(z=>out.push(`<div class="issue w">PF ↔ line: ${go(+i)} — ${esc(z.m)}. A rake cannot be on the PF and the line at the same time — check one of the two timings.</div>`)));
   return out}
 $('#ck').addEventListener('click',e=>{const i=e.target.dataset.lgo;if(i==null)return;tab('lines');$('#lnF').value='';$('#lnQ').value='';$('#lnBad').checked=false;renderLines([+i]);const r=$(`#lnT tr[data-i="${i}"]`);r&&r.scrollIntoView({block:'center'})});
 function applyVis(){const s=st();if(!s)return;const hp=s.pfs.length>0,hl=s.lines.length>0;
@@ -828,6 +830,18 @@ function applyVis(){const s=st();if(!s)return;const hp=s.pfs.length>0,hl=s.lines
 function chartSvgAll(s){const parts=[];if(s.pfs.length)parts.push(svgChart(s,layout(s,0,derive(s)),{day:0}));if(s.lines.length){const L=deriveL(s);parts.push(svgLines(s,layoutL(s,L),{}))}
   if(parts.length<2)return parts[0]?parts[0].svg:'';let y=0;const inner=parts.map(p=>{const t=p.svg.replace('<svg ',`<svg y="${y}" `);y+=p.H;return t}).join('');
   return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${y}" viewBox="0 0 ${W} ${y}">${inner}</svg>`}
+/* ---------- PF <-> line cross-check: same rake in two places ---------- */
+function expandNos(ts){const out=[];let prev='';ts.forEach(k=>{let n=String(k.no);if(/^\d{1,4}$/.test(n)&&/^\d{5}$/.test(prev))n=prev.slice(0,5-n.length)+n;out.push({...k,no:n});if(/^\d{5}$/.test(n))prev=n});return out}
+let XW={};
+function crossPF(){XW={};if(!IT||!LT)return;const WK=10080,pfOcc={};
+  IT.filter(x=>x.ok).forEach(x=>{const nos=expandNos([...x.aT,...x.dT]);nos.forEach(k=>{const set=(k.d||x.d).set;
+      for(let d=0;d<7;d++)if(set[d])(pfOcc[k.no]??=[]).push({a:d*1440+x.s,b:d*1440+x.e,pf:x.pf,x,d})})});
+  LT.it.filter(x=>x.ok).forEach(x=>{const nos=expandNos(x.tk);nos.forEach(k=>{const set=(k.d||x.d).set,P=pfOcc[k.no];if(!P)return;
+      for(let d=0;d<7;d++){if(!set[d])continue;const a=d*1440+x.s,b=d*1440+x.e;
+        P.forEach(q=>{if([-WK,0,WK].some(sh=>a<q.b+sh&&q.a+sh<b)){const L=(XW[x.i]??=[]);let z=L.find(z=>z.no===k.no&&z.pfi===q.x.i);
+          if(!z){z={no:k.no,pfi:q.x.i,pf:q.pf,days:new Set()};L.push(z)}z.days.add(d)}})}})});
+  Object.entries(XW).forEach(([i,L])=>{const x=LT.it[+i];L.forEach(z=>{const q=IT[z.pfi];
+    z.m=`${z.no} is on PF ${z.pf} ${fmt(q.s)}-${fmt(q.e)} while on ${x.line} ${actOf(x.o.act)[1]} ${fmt(x.s)}-${fmt(x.e)} — day(s) ${[...z.days].sort().map(d=>DAYN[d]).join(', ')}`})})}
 /* ---------- toast ---------- */
 let tT=null;function toast(m,undo,lbl='Undo'){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').textContent=lbl;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
 
