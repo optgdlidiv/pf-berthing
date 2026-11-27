@@ -39,8 +39,10 @@ main{padding:14px max(2vw,12px) 40px}
 .bar select,.bar input,.fld{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:7px 10px;min-height:40px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
 .note{font-size:14px;color:var(--mute)}
-.chartwrap{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:calc(100vh - 210px);min-height:300px}
+.chartwrap{position:relative;background:#fff;border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:calc(100vh - 210px);min-height:300px}
 .chartwrap svg{display:block}
+.chartwrap .ed{cursor:text}.chartwrap .ed:hover{fill:#0b5394;text-decoration:underline}
+.edbox{position:absolute;z-index:5;font:700 15px Arial,sans-serif;padding:4px 8px;border:2px solid #0b5394;border-radius:4px;background:#fff;color:#000;box-shadow:0 4px 14px #0004}
 .chartwrap .grp{cursor:pointer}.chartwrap .grp:hover rect.lb{fill:#e8f1fb}
 .empty{padding:40px;text-align:center;color:#5b6573}
 table{border-collapse:collapse;width:100%;font-size:14px}
@@ -113,7 +115,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
       <button class="btn" id="svgDl">Download SVG</button>
     </div>
     <div class="chartwrap" id="chart"></div>
-    <p class="note">Bars are drawn to the exact minute entered — nothing is rounded. Click any train to edit it. <span id="noteCh">Term → Orig bars are split at the midpoint (indicative only).</span></p>
+    <p class="note">Bars are drawn to the exact minute entered — nothing is rounded. Click any train to edit it; click the title, a PF number or a line name to rename it. <span id="noteCh">Term → Orig bars are split at the midpoint (indicative only).</span></p>
   </section>
 
   <section id="t-trains" class="hid">
@@ -152,6 +154,8 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
         <label>Station name<input id="sName" class="fld"></label>
         <label>With effect from<input id="sWef" class="fld" type="date"></label>
         <label>Heading note<input id="sNote" class="fld" placeholder="MASTER COPY"></label>
+        <label id="tPfL">PF chart title<input id="sTPf" class="fld"></label>
+        <label id="tLnL">Lines chart title<input id="sTLn" class="fld"></label>
         <label>No. of PFs (0 if none)<input id="sN" class="fld" type="number" min="0" max="40"></label>
         <label>No. of stable / center / washing lines (0 if none)<input id="sL" class="fld" type="number" min="0" max="60"></label>
         <label>Clearance gap between occupations on a PF (min)<input id="sGap" class="fld" type="number" min="0" max="60"></label>
@@ -311,7 +315,7 @@ const cv=document.createElement('canvas').getContext('2d');
 const tw=(s,f)=>{cv.font=f;return cv.measureText(s).width};
 const FL='bold 12px Arial',FT='bold 10px Arial',FS='bold 9px Arial';
 function layout(st,day,it){
-  const rows=st.pfs.map(p=>({pf:String(p.name),cap:p.cap,groups:[],lanes:[]}));
+  const rows=st.pfs.map((p,k)=>({k,pf:String(p.name),cap:p.cap,groups:[],lanes:[]}));
   const vis=it.filter(x=>x.ok&&(day==0||x.d.set[day-1]));
   rows.forEach(r=>{const mine=vis.filter(x=>x.pf===r.pf),by={};
     mine.forEach(x=>{(by[x.s+'|'+x.e]??=[]).push(x)});
@@ -350,7 +354,7 @@ function svgChart(st,rows,o){
   P(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}">`);
   P(`<rect width="${W}" height="${H}" fill="#fff"/>`);
   const wef=st.wef?st.wef.split('-').reverse().join('/'):'';
-  P(`<text x="${W/2}" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#000">${esc('PLATFORM BERTHING OF '+String(st.name||'').toUpperCase())}</text>`);
+  P(`<text class="ed" data-ed="titlePF" x="${W/2}" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#000">${esc(titlePF(st))}</text>`);
   const sub=['UPDATED WITH EFFECT FROM '+(wef||'—'),st.note||'',o.day?'SHOWING '+DAYN[o.day-1].toUpperCase()+' ('+o.day+') ONLY':'ALL DAYS',o.pages>1?'SHEET '+o.page+' OF '+o.pages:''].filter(Boolean).join('   ·   ');
   P(`<text x="${W/2}" y="50" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${esc(sub)}</text>`);
   // legend
@@ -374,7 +378,7 @@ function svgChart(st,rows,o){
   for(let t=0;t<=240;t++){const x=xm(t*6);const c=t%10===0?['#8a9099',.9]:t%5===0?['#c3c8cf',.6]:['#e6e9ed',.5];P(`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0+bodyH}" stroke="${c[0]}" stroke-width="${c[1]}"/>`)}
   // rows
   y=y0;rows.forEach(r=>{
-    P(`<rect x="${M}" y="${y}" width="${LEFT}" height="${r.h}" fill="#fff" stroke="#000" stroke-width="1"/><text x="${M+LEFT/2}" y="${y+r.h/2+10}" text-anchor="middle" font-size="${String(r.pf).length>3?16:28}" font-weight="bold" fill="#000">${esc(r.pf)}</text>`);
+    P(`<rect x="${M}" y="${y}" width="${LEFT}" height="${r.h}" fill="#fff" stroke="#000" stroke-width="1"/><text class="ed" data-ed="pf:${r.k}" x="${M+LEFT/2}" y="${y+r.h/2+10}" text-anchor="middle" font-size="${String(r.pf).length>3?16:28}" font-weight="bold" fill="#000">${esc(r.pf)}</text>`);
     P(`<rect x="${X0+PW}" y="${y}" width="${CAPW}" height="${r.h}" fill="#fff" stroke="#000" stroke-width="1"/><text x="${X0+PW+CAPW/2}" y="${y+r.h/2+7}" text-anchor="middle" font-size="18" font-weight="bold" fill="#000">${esc(r.cap??'')}</text>`);
     let ly2=y+6;
     r.lanes.forEach(L=>{const by=ly2+L.lh;
@@ -465,7 +469,7 @@ $('#trT').addEventListener('click',e=>{const d=e.target.dataset.del;if(d==null)r
 $('#addRow').onclick=()=>{const pf=$('#fPf').value||'';st().trains.unshift({pf,kind:'T',arr:'',dep:'',from:'',to:'',days:'Daily',load:'',rem:''});touch('Added a new train row'+(pf?' on PF '+pf:''));refresh();const r=$('#trT tbody tr');r&&r.querySelector('select').focus()};
 $('#sortRows').onclick=()=>{const s=st(),ord=s.pfs.map(p=>String(p.name));s.trains.sort((a,b)=>{const pa=ord.indexOf(String(a.pf)),pb=ord.indexOf(String(b.pf));return (pa<0?999:pa)-(pb<0?999:pb)||(toMin(a.from)??9999)-(toMin(b.from)??9999)});touch('Sorted train list by PF & time (no timing changed)');refresh()};
 
-function renderSetup(){const s=st();$('#sName').value=s.name||'';$('#sWef').value=s.wef||'';$('#sNote').value=s.note||'';$('#sN').value=s.pfs.length;$('#sGap').value=s.gap||0;
+function renderSetup(){const s=st();$('#sTPf').value=titlePF(s);$('#sTLn').value=titleLn(s);$('#tPfL').classList.toggle('hid',!s.pfs.length);$('#tLnL').classList.toggle('hid',!s.lines.length);$('#sName').value=s.name||'';$('#sWef').value=s.wef||'';$('#sNote').value=s.note||'';$('#sN').value=s.pfs.length;$('#sGap').value=s.gap||0;
   $('#pfT tbody').innerHTML=s.pfs.map((p,k)=>{const mine=IT.filter(x=>x.ok&&x.pf===String(p.name));
     const hrs=[0,1,2,3,4,5,6].map(d=>mine.filter(x=>x.d.set[d]).reduce((a,x)=>a+(x.e-x.s),0)/60);const pk=Math.max(...hrs);
     return`<tr data-k="${k}"><td><input data-p="name" value="${esc(p.name)}" style="min-width:70px" aria-label="PF name"></td><td><input data-p="cap" value="${esc(p.cap??'')}" style="min-width:70px" aria-label="Capacity"></td><td class="num">${mine.length}</td>${hrs.map(h=>`<td class="num">${h.toFixed(1)}</td>`).join('')}<td class="num"><b>${Math.round(pk/24*100)}%</b></td></tr>`}).join('')}
@@ -517,7 +521,7 @@ $('#dlgNew').addEventListener('close',()=>{if($('#dlgNew').returnValue!=='ok')re
   const pOn=$('#nPfOn').checked,lOn=$('#nLnOn').checked;if(!pOn&&!lOn){toast('Tick PF Berthing and/or Lines');return}
   const n=pOn?Math.min(40,Math.max(1,+$('#nN').value||1)):0,nl=lOn?Math.min(60,Math.max(1,+$('#nL').value||1)):0;
   showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[],lines:Array.from({length:nl},(_,k)=>({name:'Line '+(k+1),cap:''})),occs:[],log:[]};cur=id;
-  touch('Station created with '+[n?n+' PFs':'',nl?nl+' lines':''].filter(Boolean).join(' and '));if(!n)$('#cType').value='ln';refresh();tab('setup');if(nl)toast('Rename the lines under Station setup (e.g. W/L 1, Stable line 1, Center line 2A)')});
+  touch('Station created with '+[n?n+' PFs':'',nl?nl+' lines':''].filter(Boolean).join(' and '));if(!n)$('#cType').value='ln';refresh();tab('setup');if(nl)toast('Rename lines by clicking their name on the chart, or under Station setup (e.g. Stable Line 1, W/L 1, Center line 2A)')});
 $('#dup').onclick=()=>{const s=JSON.parse(JSON.stringify(st()));const from=s.name;s.id=newId(s.name);s.name=s.name+' (copy)';s.log=[];stations[s.id]=s;cur=s.id;touch('Duplicated from '+from);refresh();toast('Duplicated — rename it under Station & PFs')};
 let delArm=0;$('#del').onclick=async e=>{if(Date.now()-delArm>4000){delArm=Date.now();e.target.textContent='Click again to delete';setTimeout(()=>e.target.textContent='Delete station',4000);return}
   const id=cur,bk=stations[id];delete stations[id];cur=Object.keys(stations)[0]||null;cache();refresh();e.target.textContent='Delete station';
@@ -714,20 +718,20 @@ function deriveL(st){const names=st.lines.map(l=>String(l.name));
       if(P.x===Q.x)continue;if(P.a<Q.b&&Q.a<P.b){P.x.clash.push({j:Q.x.i,d});Q.x.clash.push({j:P.x.i,d});P.cl=Q.cl=true}}}));
   return{it,rows}}
 const LHDR=22,LANE=20,BH=14,FB='bold 10px Arial';
-function layoutL(st,L){return st.lines.map(l=>{const name=String(l.name),R=L.rows[name]||[[],[],[],[],[],[],[]];
+function layoutL(st,L){return st.lines.map((l,k)=>{const name=String(l.name),R=L.rows[name]||[[],[],[],[],[],[],[]];
     const days=R.map((ps,d)=>{const sorted=ps.slice().sort((p,q)=>p.a-q.a||q.b-p.b),lanes=[];
       sorted.forEach(p=>{let k=lanes.findIndex(end=>end<=p.a);if(k<0){k=lanes.length;lanes.push(0)}lanes[k]=p.b;p.lane=k});
       // join consecutive stretches of same train: label once
       sorted.forEach((p,k)=>{const prev=sorted.slice(0,k).reverse().find(q=>q.lane===p.lane);p.joined=!!(prev&&prev.b===p.a&&prev.txt===p.txt)});
       const hrs=ps.reduce((a,p)=>a+(p.b-p.a),0)/60;
       return{d,ps:sorted,h:Math.max(1,lanes.length)*LANE,hrs}});
-    return{name,cap:l.cap,days,h:LHDR+days.reduce((a,r)=>a+r.h,0)}})}
+    return{k,name,cap:l.cap,days,h:LHDR+days.reduce((a,r)=>a+r.h,0)}})}
 function svgLines(st,blocks,o){
   const font=o.pdf?'helvetica':'Arial, Helvetica, sans-serif';
   const bodyH=blocks.reduce((a,b)=>a+b.h,0),y0=TOPH+HDR+RUL,H=y0+bodyH+FOOT,out=[],P=x=>out.push(x);
   P(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}"><rect width="${W}" height="${H}" fill="#fff"/>`);
   const wef=st.wef?st.wef.split('-').reverse().join('/'):'';
-  P(`<text x="${W/2}" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#000">${esc('STABLE / CENTER / WASHING LINE BERTHING OF '+String(st.name||'').toUpperCase())}</text>`);
+  P(`<text class="ed" data-ed="titleLn" x="${W/2}" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#000">${esc(titleLn(st))}</text>`);
   const sub=['UPDATED WITH EFFECT FROM '+(wef||'—'),st.note||'',o.pages>1?'SHEET '+o.page+' OF '+o.pages:''].filter(Boolean).join('   ·   ');
   P(`<text x="${W/2}" y="50" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${esc(sub)}</text>`);
   let lx=X0;const ly=60;
@@ -743,7 +747,7 @@ function svgLines(st,blocks,o){
   for(let t=0;t<=144;t++){const x=xm(t*10);const c=t%6===0?['#8a9099',.9]:t%3===0?['#c3c8cf',.6]:['#e6e9ed',.5];P(`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0+bodyH}" stroke="${c[0]}" stroke-width="${c[1]}"/>`)}
   let y=y0;
   blocks.forEach(B=>{
-    P(`<rect x="${M}" y="${y}" width="${LEFT+PW+CAPW}" height="${LHDR}" fill="#dfe5ec" stroke="#000" stroke-width="1"/><text x="${M+8}" y="${y+16}" font-size="13" font-weight="bold" fill="#000">${esc(B.name)}</text>`);
+    P(`<rect x="${M}" y="${y}" width="${LEFT+PW+CAPW}" height="${LHDR}" fill="#dfe5ec" stroke="#000" stroke-width="1"/><text class="ed" data-ed="line:${B.k}" x="${M+8}" y="${y+16}" font-size="13" font-weight="bold" fill="#000">${esc(B.name)}</text>`);
     if(B.cap)P(`<text x="${X0+PW-8}" y="${y+15}" text-anchor="end" font-size="10.5" font-weight="bold" fill="#333">${esc('Length: '+B.cap+' coaches')}</text>`);
     y+=LHDR;
     B.days.forEach(R=>{
@@ -805,8 +809,7 @@ function renderLineSetup(){const s=st();$('#sL').value=s.lines.length;$('#lnSetu
   $('#lsT tbody').innerHTML=s.lines.map((l,k)=>{const b=B[k],n=LT.it.filter(x=>x.line===String(l.name)).length,hrs=b.days.map(r=>r.hrs),pk=Math.max(0,...hrs);
     return`<tr data-k="${k}"><td><input data-l="name" value="${esc(l.name)}" style="min-width:150px" aria-label="Line name"></td><td><input data-l="cap" value="${esc(l.cap??'')}" style="min-width:70px" aria-label="Length"></td><td class="num">${n}</td>${hrs.map(h=>`<td class="num">${h.toFixed(1)}</td>`).join('')}<td class="num"><b>${Math.round(pk/24*100)}%</b></td></tr>`}).join('')}
 $('#lsT').addEventListener('change',e=>{const f=e.target.dataset.l;if(!f)return;const k=+e.target.closest('tr').dataset.k,s=st(),v=e.target.value.trim();
-  if(f==='name'){const old=String(s.lines[k].name);if(!v||s.lines.some((l,j)=>j!==k&&String(l.name)===v)){e.target.value=old;toast('Line name must be unique and not blank');return}
-    s.occs.forEach(o=>{if(String(o.line)===old)o.line=v});s.lines[k].name=v;touch('Line '+old+' renamed to '+v)}
+  if(f==='name'){const old=String(s.lines[k].name);if(!v){e.target.value=old;toast('Line name cannot be blank');return}if(!renameLine(k,v)){e.target.value=old;return}}
   else{const o=s.lines[k].cap;s.lines[k].cap=v===''?'':+v||v;touch('Line '+s.lines[k].name+' length '+(o||'—')+' → '+(v||'—'))}refresh()});
 $('#sL').addEventListener('change',e=>{const s=st();let n=Math.min(60,Math.max(0,Math.round(+e.target.value||0)));if(!n&&!s.pfs.length){e.target.value=s.lines.length;toast('A station needs PFs or lines');return}
   const o=s.lines.length;while(s.lines.length<n){let k=s.lines.length+1;while(s.lines.some(l=>String(l.name)==='Line '+k))k++;s.lines.push({name:'Line '+k,cap:''})}
@@ -842,6 +845,23 @@ function crossPF(){XW={};if(!IT||!LT)return;const WK=10080,pfOcc={};
           if(!z){z={no:k.no,pfi:q.x.i,pf:q.pf,days:new Set()};L.push(z)}z.days.add(d)}})}})});
   Object.entries(XW).forEach(([i,L])=>{const x=LT.it[+i];L.forEach(z=>{const q=IT[z.pfi];
     z.m=`${z.no} is on PF ${z.pf} ${fmt(q.s)}-${fmt(q.e)} while on ${x.line} ${actOf(x.o.act)[1]} ${fmt(x.s)}-${fmt(x.e)} — day(s) ${[...z.days].sort().map(d=>DAYN[d]).join(', ')}`})})}
+/* ---------- editable titles & names (click on chart) ---------- */
+const titlePF=st=>String(st.titlePF||'').trim()||'PLATFORM BERTHING OF '+String(st.name||'').toUpperCase();
+const titleLn=st=>String(st.titleLn||'').trim()||'STABLE / CENTER / WASHING LINE BERTHING OF '+String(st.name||'').toUpperCase();
+function renamePF(k,v){const s=st(),old=String(s.pfs[k].name);v=String(v).trim();if(!v||v===old)return false;if(s.pfs.some((p,j)=>j!==k&&String(p.name)===v)){toast('PF name must be unique');return false}
+  s.trains.forEach(t=>{if(String(t.pf)===old)t.pf=v});s.pfs[k].name=v;touch('PF '+old+' renamed to '+v);return true}
+function renameLine(k,v){const s=st(),old=String(s.lines[k].name);v=String(v).trim();if(!v||v===old)return false;if(s.lines.some((l,j)=>j!==k&&String(l.name)===v)){toast('Line name must be unique');return false}
+  s.occs.forEach(o=>{if(String(o.line)===old)o.line=v});s.lines[k].name=v;touch('Line '+old+' renamed to '+v);return true}
+function setTitle(f,v){const s=st(),o=f==='titlePF'?titlePF(s):titleLn(s);v=String(v).trim();if(v===o)return false;s[f]=v;touch((f==='titlePF'?'PF chart':'Lines chart')+' title “'+o+'” → “'+(v||'default')+'”');return true}
+$('#chart').addEventListener('click',e=>{const t=e.target.closest('.ed');if(!t||readOnly)return;e.stopPropagation();const box=$('#chart'),r=t.getBoundingClientRect(),b=box.getBoundingClientRect(),key=t.dataset.ed,s=st();
+  let val=key==='titlePF'?titlePF(s):key==='titleLn'?titleLn(s):key.startsWith('pf:')?s.pfs[+key.slice(3)].name:s.lines[+key.slice(5)].name;
+  box.querySelectorAll('.edbox').forEach(x=>x.remove());const inp=document.createElement('input');inp.className='edbox';inp.value=val;
+  const wdt=Math.max(r.width+40,key.startsWith('title')?520:180);inp.style.left=Math.max(4,r.left-b.left+box.scrollLeft+(key.startsWith('title')?(r.width-wdt)/2:-4))+'px';inp.style.top=(r.top-b.top+box.scrollTop-6)+'px';inp.style.width=wdt+'px';
+  box.appendChild(inp);inp.focus();inp.select();let done=false;
+  const fin=ok=>{if(done)return;done=true;const v=inp.value;inp.remove();if(!ok)return;
+    const ch=key==='titlePF'||key==='titleLn'?setTitle(key,v):key.startsWith('pf:')?renamePF(+key.slice(3),v):renameLine(+key.slice(5),v);if(ch)refresh()};
+  inp.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();fin(true)}else if(ev.key==='Escape')fin(false)});inp.addEventListener('blur',()=>fin(true))},true);
+[['#sTPf','titlePF'],['#sTLn','titleLn']].forEach(([id,f])=>$(id).addEventListener('change',e=>{if(setTitle(f,e.target.value))refresh()}));
 /* ---------- toast ---------- */
 let tT=null;function toast(m,undo,lbl='Undo'){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').textContent=lbl;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
 
