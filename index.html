@@ -90,7 +90,8 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
 <nav class="tabs" role="tablist">
   <button role="tab" data-t="chart" aria-selected="true">Chart</button>
   <button role="tab" data-t="trains">Trains<span class="badge" id="bTr"></span></button>
-  <button role="tab" data-t="setup">Station &amp; PFs</button>
+  <button role="tab" data-t="lines">Line occupations<span class="badge" id="bLn" style="background:#5b6573"></span></button>
+  <button role="tab" data-t="setup">Station setup</button>
   <button role="tab" data-t="count">Train count</button>
   <button role="tab" data-t="finder">Free PF finder</button>
   <button role="tab" data-t="checks">Checks<span class="badge" id="bCk"></span></button>
@@ -102,7 +103,8 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
 
   <section id="t-chart">
     <div class="bar">
-      <label>Show <select id="day">
+      <label>Chart <select id="cType"><option value="pf">PF Berthing</option><option value="ln">Stable / Center / Washing lines</option></select></label>
+      <label id="dayL">Show <select id="day">
         <option value="0">All days</option><option value="1">Mon (1)</option><option value="2">Tue (2)</option><option value="3">Wed (3)</option><option value="4">Thu (4)</option><option value="5">Fri (5)</option><option value="6">Sat (6)</option><option value="7">Sun (7)</option></select></label>
       <label>Zoom <select id="zoom"><option value="fit">Fit width</option><option value="1">100%</option><option value="1.4">140%</option><option value="2">200%</option></select></label>
       <span style="flex:1"></span>
@@ -111,7 +113,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
       <button class="btn" id="svgDl">Download SVG</button>
     </div>
     <div class="chartwrap" id="chart"></div>
-    <p class="note">Bars are drawn to the exact minute entered — nothing is rounded. Click any train to edit it. Term → Orig bars are split at the midpoint (indicative only).</p>
+    <p class="note">Bars are drawn to the exact minute entered — nothing is rounded. Click any train to edit it. <span id="noteCh">Term → Orig bars are split at the midpoint (indicative only).</span></p>
   </section>
 
   <section id="t-trains" class="hid">
@@ -129,17 +131,36 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
     <p class="note">Choose the Type for each train — changing Terminating ↔ Originating moves the train no. to the right column. Term → Orig needs both Arr. and Dep. train. Times 24-hr (06:45, 0645 or 6.45). Past midnight is fine (21:05 → 00:10). Days: Daily · 1,3,5 · Ex.4,7 (1 = Mon … 7 = Sun), or leave blank and put days in brackets after each train no., e.g. Arr 19337(1),20983(3,6) · Dep 19338(1),20984(3,6) — the chart then shows one line per pair. Same slot on different days = one row per train; they are combined on the chart.</p>
   </section>
 
+  <section id="t-lines" class="hid">
+    <div class="bar">
+      <label>Line <select id="lnF"><option value="">All</option></select></label>
+      <input id="lnQ" class="fld" placeholder="Search train / rake no. / remarks" aria-label="Search lines">
+      <label><input type="checkbox" id="lnBad"> Problems only</label>
+      <span style="flex:1"></span>
+      <button class="btn pri" id="lnAdd">+ Add occupation</button>
+      <button class="btn" id="lnSort">Sort by line &amp; time</button>
+      <button class="btn" id="lnPaste">Paste from Excel</button>
+      <button class="btn" id="lnCsv">Download CSV</button>
+    </div>
+    <div class="tw"><table id="lnT"><thead><tr><th>#</th><th>Line</th><th>Train / rake no.</th><th>Activity</th><th>From</th><th>To</th><th>Days</th><th>Remarks</th><th>Check</th><th></th></tr></thead><tbody></tbody></table></div>
+    <p class="note">One row per activity stretch, e.g. 12415 · Secondary 08:30–12:40, then 12415 · Stabling 12:40–15:10 on the same line — consecutive stretches join into one bar on the chart. Days = the day the stretch <b>starts</b> (Daily · 1,3,5 · Ex.4,7, or brackets in the train no. like 22401(1,3,6),12265(2,5,7)). A stretch past midnight (e.g. 20:10 → 05:40) continues automatically in the next day's row (Sun → Mon).</p>
+  </section>
+
   <section id="t-setup" class="hid">
     <div class="panel">
       <div class="grid2">
         <label>Station name<input id="sName" class="fld"></label>
         <label>With effect from<input id="sWef" class="fld" type="date"></label>
         <label>Heading note<input id="sNote" class="fld" placeholder="MASTER COPY"></label>
-        <label>No. of PFs<input id="sN" class="fld" type="number" min="1" max="40"></label>
+        <label>No. of PFs (0 if none)<input id="sN" class="fld" type="number" min="0" max="40"></label>
+        <label>No. of stable / center / washing lines (0 if none)<input id="sL" class="fld" type="number" min="0" max="60"></label>
         <label>Clearance gap between occupations on a PF (min)<input id="sGap" class="fld" type="number" min="0" max="60"></label>
       </div>
       <div class="tw" style="max-height:none"><table id="pfT"><thead><tr><th>PF name</th><th>Capacity (coaches)</th><th class="num">Trains</th><th class="num">Mon</th><th class="num">Tue</th><th class="num">Wed</th><th class="num">Thu</th><th class="num">Fri</th><th class="num">Sat</th><th class="num">Sun</th><th class="num">Peak use</th></tr></thead><tbody></tbody></table></div>
-      <p class="note">Day columns = hours the PF is occupied that day (occupation past midnight counted on its start day). Peak use = busiest day ÷ 24 h.</p>
+      <p class="note" id="pfNote">Day columns = hours the PF is occupied that day (occupation past midnight counted on its start day). Peak use = busiest day ÷ 24 h.</p>
+      <div id="lnSetup"><h3 style="margin:18px 0 6px">Stable / Center / Washing lines</h3>
+      <div class="tw" style="max-height:none"><table id="lsT"><thead><tr><th>Line name</th><th>Length (coaches)</th><th class="num">Entries</th><th class="num">Mon</th><th class="num">Tue</th><th class="num">Wed</th><th class="num">Thu</th><th class="num">Fri</th><th class="num">Sat</th><th class="num">Sun</th><th class="num">Peak use</th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Name lines as you like (e.g. W/L 1, Stable line 3, Center line 2A, Shunting neck 1). Day columns = hours occupied in that day's row, including stays carried over from the previous night.</p></div>
       <div class="bar" style="margin-top:14px">
         <button class="btn" id="dup">Duplicate station</button>
         <span style="flex:1"></span>
@@ -182,8 +203,19 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
 
 <dialog id="dlgNew"><form method="dialog" id="fNew">
   <h2 style="margin:0 0 10px">New station</h2>
-  <div class="grid2"><label>Station name<input id="nName" class="fld" required placeholder="e.g. Anand Vihar Terminal"></label><label>No. of PFs<input id="nN" class="fld" type="number" min="1" max="40" value="7" required></label></div>
+  <label>Station name<input id="nName" class="fld" required placeholder="e.g. Anand Vihar Terminal" style="width:100%;margin-top:4px"></label>
+  <p class="note" style="margin:12px 0 4px">Charts for this station (tick one or both):</p>
+  <div class="grid2">
+    <div class="panel"><label style="font-weight:600"><input type="checkbox" id="nPfOn" checked> PF Berthing</label><label class="note" style="display:block;margin-top:6px">No. of PFs<input id="nN" class="fld" type="number" min="1" max="40" value="7" style="width:100%"></label></div>
+    <div class="panel"><label style="font-weight:600"><input type="checkbox" id="nLnOn"> Stable / Center / Washing lines</label><label class="note" style="display:block;margin-top:6px">No. of lines<input id="nL" class="fld" type="number" min="1" max="60" value="6" style="width:100%"></label></div>
+  </div>
   <div class="bar"><button class="btn pri" value="ok">Create</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
+</form></dialog>
+<dialog id="dlgPasteL"><form method="dialog" id="fPasteL">
+  <h2 style="margin:0 0 6px">Paste line occupations from Excel</h2>
+  <p class="note" style="margin-top:0">Column order: <b>Line · Train/rake no. · Activity · From · To · Days · Remarks</b> (Days, Remarks optional). Activity: RPC, Stabling, PM (maintenance), SAM (stabled after maintenance), Secondary. Line names must match the station setup. A header row is skipped automatically.</p>
+  <textarea id="plTxt" placeholder="W/L 1&#9;12415&#9;Secondary&#9;08:30&#9;12:40&#9;Daily"></textarea>
+  <div class="bar" style="margin-top:10px"><label><input type="radio" name="plm" value="add" checked> Add to existing</label><label><input type="radio" name="plm" value="rep"> Replace all line occupations</label><span style="flex:1"></span><button class="btn pri" value="ok">Import</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
 </form></dialog>
 <dialog id="dlgPaste"><form method="dialog" id="fPaste">
   <h2 style="margin:0 0 6px">Paste from Excel</h2>
@@ -235,7 +267,7 @@ function parseKind(v){v=String(v??'').trim().toLowerCase().replace(/[^a-z]/g,'')
   if(v.startsWith('term'))return'T';if(v.startsWith('orig'))return'O';if(v==='t')return'T';if(v==='o')return'O';
   if(v.startsWith('pass')&&v!=='passenger')return'P';if(v==='passenger'||v==='psgr'||v==='g')return'G';if(v.startsWith('emu')||v==='e')return'E';if(v==='p')return'P';return null}
 function setKind(t,k){t.kind=k;if(k==='O'){t.dep=t.dep||t.arr;t.arr=''}else if(k!=='TO'){t.arr=t.arr||t.dep;t.dep=''}}
-function migrate(stn){(stn.trains||[]).forEach(t=>{if(!t.kind){t.kind=legacy(t);if(t.kind!=='TO')setKind(t,t.kind)}delete t.type})}
+function migrate(stn){stn.pfs??=[];stn.trains??=[];stn.lines??=[];stn.occs??=[];(stn.trains||[]).forEach(t=>{if(!t.kind){t.kind=legacy(t);if(t.kind!=='TO')setKind(t,t.kind)}delete t.type})}
 const tname=c=>({T:'Terminating',O:'Originating',TO:'Term → Orig',P:'Passing',E:'EMU',G:'Passenger'}[c]);
 
 /* ---------- train-no tokens with own days, e.g. 19337(1),20983(3,6) ---------- */
@@ -397,8 +429,9 @@ function refresh(){Object.values(stations).forEach(migrate);
   if(!has){$('#chart').innerHTML='';return}
   IT=derive(st());const nC=IT.filter(x=>x.clash.length).length,nB=IT.filter(x=>!x.ok).length,nW=IT.filter(x=>x.warn.length).length;
   $('#bCk').textContent=(nC+nB+nW)||'';$('#bTr').textContent=st().trains.length||'';
-  drawChart();renderTrains();renderSetup();renderFinder();renderChecks();renderLog();renderCount();if(!ARTIFACT)updFile()}
-function drawChart(){const day=+$('#day').value;const rows=layout(st(),day,IT);const {svg,H}=svgChart(st(),rows,{day});
+  LT=deriveL(st());const nL=LT.it.filter(x=>!x.ok||x.clash.length).length;$('#bLn').textContent=st().occs.length||'';$('#bCk').textContent=(nC+nB+nW+nL)||'';
+  applyVis();drawChart();renderTrains();renderSetup();renderLineSetup();renderLines();renderFinder();renderChecks();renderLog();renderCount();if(!ARTIFACT)updFile()}
+function drawChart(){const day=+$('#day').value,ln=$('#cType').value==='ln';const {svg,H}=ln?svgLines(st(),layoutL(st(),LT),{}):svgChart(st(),layout(st(),day,IT),{day});
   const box=$('#chart');box.innerHTML=svg;const el=box.querySelector('svg');const z=$('#zoom').value;
   if(z==='fit'){el.style.width='100%';el.style.height='auto'}else{el.style.width=W*+z+'px';el.style.height=H*+z+'px'}}
 $('#chart').addEventListener('click',e=>{const g=e.target.closest('.grp');if(!g)return;const ids=g.dataset.ids.split(',').map(Number);
@@ -442,7 +475,7 @@ $('#pfT').addEventListener('change',e=>{const f=e.target.dataset.p;if(!f)return;
   else{const o=s.pfs[k].cap;s.pfs[k].cap=v===''?'':+v||v;touch('PF '+s.pfs[k].name+' capacity '+(o||'—')+' → '+(v||'—'))}refresh()});
 [['#sName','name'],['#sWef','wef'],['#sNote','note'],['#sGap','gap']].forEach(([id,f])=>$(id).addEventListener('change',e=>{const o=st()[f];st()[f]=f==='gap'?Math.max(0,+e.target.value||0):e.target.value.trim();
   touch({name:'Station name',wef:'With effect from',note:'Heading note',gap:'Clearance gap (min)'}[f]+' '+(o||'—')+' → '+(st()[f]||'—'));refresh()}));
-$('#sN').addEventListener('change',e=>{const s=st();let n=Math.min(40,Math.max(1,Math.round(+e.target.value||1)));
+$('#sN').addEventListener('change',e=>{const s=st();let n=Math.min(40,Math.max(0,Math.round(+e.target.value||0)));if(!n&&!s.lines.length){e.target.value=s.pfs.length;toast('A station needs PFs or lines');return}
   while(s.pfs.length<n){let k=s.pfs.length+1;while(s.pfs.some(p=>String(p.name)===String(k)))k++;s.pfs.push({name:String(k),cap:24})}
   const gone=s.pfs.slice(n).map(p=>String(p.name)),used=s.trains.filter(t=>gone.includes(String(t.pf))).length,o=s.pfs.length;s.pfs.length=n;touch('No. of PFs '+o+' → '+n);refresh();
   if(used)toast(used+' train(s) are on removed PFs — see Checks')});
@@ -469,18 +502,22 @@ function renderChecks(){const go=i=>`<a data-go="${i}">${esc(IT[i].lab||'row '+(
     roles.forEach(r=>{const z=u.filter(q=>q.role===r),pfs=[...new Set(z.map(q=>q.pf))];if(pfs.length<2)return;
       const clashDays=[1,2,3,4,5,6,7].filter(d=>pfs.filter(pf=>z.some(q=>q.pf===pf&&q.set[d-1])).length>1);
       out.push(`<div class="issue${clashDays.length?'':' w'}">Train ${esc(no)} is ${esc(r)} on PF ${esc(pfs.join(', '))}${clashDays.length?' on the same day(s) '+clashDays.join(',')+' — a train can use only one PF a day':' (on different days)'} (${z.map(q=>go(q.i)).join(', ')}).</div>`)})});
-  $('#ck').innerHTML=out.length?out.join(''):'<p class="free" style="margin:0">No clashes or errors. All '+IT.length+' entries are drawn.</p>'}
+  out.push(...lineChecks());
+  $('#ck').innerHTML=out.length?out.join(''):'<p class="free" style="margin:0">No clashes or errors. All '+(IT.length+LT.it.length)+' entries are drawn.</p>'}
 $('#ck').addEventListener('click',e=>{const i=e.target.dataset.go;if(i==null)return;tab('trains');$('#fPf').value='';$('#fQ').value='';$('#fBad').checked=false;renderTrains([+i]);const r=$(`#trT tr[data-i="${i}"]`);r&&r.scrollIntoView({block:'center'})});
 
 /* ---------- tabs, stations ---------- */
 function tab(t){$$('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===t));$$('main>section').forEach(s=>s.classList.toggle('hid',s.id!=='t-'+t));if(t==='chart'&&st())drawChart();if(t==='log'&&ghOn()&&verFor!==cur)loadVersions();try{localStorage.setItem('pfb.tab',t)}catch(e){}}
 $$('.tabs button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
-['#day','#zoom'].forEach(s=>$(s).addEventListener('change',drawChart));
+['#day','#zoom'].forEach(s=>$(s).addEventListener('change',drawChart));$('#cType').addEventListener('change',()=>{applyVis();drawChart()});
 $('#stSel').onchange=e=>{cur=e.target.value;cache();refresh();verFor=null;if(!$('#t-log').classList.contains('hid'))loadVersions()};
 const newId=n=>String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)+'-'+Math.random().toString(36).slice(2,6);
 $('#newSt').onclick=$('#newSt2').onclick=()=>{$('#fNew').reset();$('#dlgNew').showModal()};
-$('#dlgNew').addEventListener('close',()=>{if($('#dlgNew').returnValue!=='ok')return;const name=$('#nName').value.trim();if(!name)return;const n=Math.min(40,Math.max(1,+$('#nN').value||1));
-  showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[],log:[]};cur=id;touch('Station created with '+n+' PFs');refresh();tab('setup')});
+$('#dlgNew').addEventListener('close',()=>{if($('#dlgNew').returnValue!=='ok')return;const name=$('#nName').value.trim();if(!name)return;
+  const pOn=$('#nPfOn').checked,lOn=$('#nLnOn').checked;if(!pOn&&!lOn){toast('Tick PF Berthing and/or Lines');return}
+  const n=pOn?Math.min(40,Math.max(1,+$('#nN').value||1)):0,nl=lOn?Math.min(60,Math.max(1,+$('#nL').value||1)):0;
+  showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[],lines:Array.from({length:nl},(_,k)=>({name:'Line '+(k+1),cap:''})),occs:[],log:[]};cur=id;
+  touch('Station created with '+[n?n+' PFs':'',nl?nl+' lines':''].filter(Boolean).join(' and '));if(!n)$('#cType').value='ln';refresh();tab('setup');if(nl)toast('Rename the lines under Station setup (e.g. W/L 1, Stable line 1, Center line 2A)')});
 $('#dup').onclick=()=>{const s=JSON.parse(JSON.stringify(st()));const from=s.name;s.id=newId(s.name);s.name=s.name+' (copy)';s.log=[];stations[s.id]=s;cur=s.id;touch('Duplicated from '+from);refresh();toast('Duplicated — rename it under Station & PFs')};
 let delArm=0;$('#del').onclick=async e=>{if(Date.now()-delArm>4000){delArm=Date.now();e.target.textContent='Click again to delete';setTimeout(()=>e.target.textContent='Delete station',4000);return}
   const id=cur,bk=stations[id];delete stations[id];cur=Object.keys(stations)[0]||null;cache();refresh();e.target.textContent='Delete station';
@@ -503,7 +540,7 @@ $('#csv').onclick=()=>{const q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.
 /* station files: File System Access API where allowed (Chrome/Edge on a normal site), else download/upload */
 const handles={};let fileDirty=new Set();
 const canFS=!ARTIFACT&&'showSaveFilePicker' in window;
-function loadStation(txt){const s=JSON.parse(txt);if(!s||!Array.isArray(s.pfs)||!Array.isArray(s.trains))throw new Error('bad');
+function loadStation(txt){const s=JSON.parse(txt);if(!s||!(Array.isArray(s.pfs)||Array.isArray(s.lines)))throw new Error('bad');
   s.id=String(s.id||newId(s.name||'station')).replace(/[^\w.~:@+-]/g,'-').slice(0,60);s.name=String(s.name||'Station');migrate(s);stations[s.id]=s;cur=s.id;fileDirty.delete(s.id);return s}
 $('#openF').onclick=async()=>{if(canFS&&window.showOpenFilePicker){try{const [h]=await showOpenFilePicker({types:[{description:'Berthing file',accept:{'application/json':['.json']}}]});
     const s=loadStation(await (await h.getFile()).text());handles[s.id]=h;touch('Opened from file '+h.name);fileDirty.delete(s.id);showBanner('');refresh();toast('Opened '+h.name+' — Save file writes back to it');updFile()}catch(e){if(e&&e.name!=='AbortError')toast('That file is not a berthing file')}return}
@@ -541,16 +578,16 @@ const loadJs=u=>new Promise((ok,no)=>{const s=document.createElement('script');s
 let libs=null;const PAPER={A4:[841.89,595.28],A3:[1190.55,841.89],A2:[1683.78,1190.55]};
 $('#pdf').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='Preparing…';
   try{libs??=loadJs('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(()=>loadJs('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js'));await libs;
-    const [pw,ph]=PAPER[$('#paper').value],mg=18,sc=(pw-2*mg)/W,day=+$('#day').value,rows=layout(st(),day,IT);
+    const ln=$('#cType').value==='ln',[pw,ph]=PAPER[$('#paper').value],mg=18,sc=(pw-2*mg)/W,day=+$('#day').value,rows=ln?layoutL(st(),LT):layout(st(),day,IT);
     const fixed=TOPH+HDR+RUL+FOOT,avail=(ph-2*mg)/sc-fixed,pages=[];let curp=[],h=0;
     rows.forEach(r=>{if(curp.length&&h+r.h>avail){pages.push(curp);curp=[];h=0}curp.push(r);h+=r.h});if(curp.length)pages.push(curp);
     const doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'pt',format:[pw,ph]});const host=$('#pdfHost');
-    for(let p=0;p<pages.length;p++){if(p)doc.addPage([pw,ph],'landscape');const {svg,H}=svgChart(st(),pages[p],{pdf:true,day,page:p+1,pages:pages.length});
+    for(let p=0;p<pages.length;p++){if(p)doc.addPage([pw,ph],'landscape');const {svg,H}=(ln?svgLines:svgChart)(st(),pages[p],{pdf:true,day,page:p+1,pages:pages.length});
       host.innerHTML=svg;const el=host.querySelector('svg');const s2=Math.min(sc,(ph-2*mg)/H);await doc.svg(el,{x:mg,y:mg,width:W*s2,height:H*s2})}
-    host.innerHTML='';await save(fname('pdf'),doc.output('blob'),'PDF ready: '+pages.length+' sheet(s)')}
+    host.innerHTML='';await save(ln?fname('pdf').replace('_Berthing_','_Lines_'):fname('pdf'),doc.output('blob'),'PDF ready: '+pages.length+' sheet(s)')}
   catch(x){console.error(x);toast('PDF could not be made here – use Download SVG and print it')}
   b.disabled=false;b.textContent='Download PDF'};
-$('#svgDl').onclick=()=>{const day=+$('#day').value;save(fname('svg'),svgChart(st(),layout(st(),day,IT),{day}).svg.replace(/<title>[^<]*<\/title>/g,''))};
+$('#svgDl').onclick=()=>{const day=+$('#day').value,ln=$('#cType').value==='ln';save(ln?fname('svg').replace('_Berthing_','_Lines_'):fname('svg'),(ln?svgLines(st(),layoutL(st(),LT),{}):svgChart(st(),layout(st(),day,IT),{day})).svg.replace(/<title>[^<]*<\/title>/g,''))};
 
 /* ---------- Google Drive storage via your Apps Script web app ---------- */
 let driveFolder='';
@@ -574,7 +611,7 @@ async function ghSave(id,force){const s=stations[id];if(!s)return;const np=(pend
   const who=(gcfg.name||'').trim();const prev=s.savedAt,prevBy=s.savedBy;s.savedAt=new Date().toISOString();s.savedBy=who;
   const message=s.name+': '+(np?np+' change(s)':'saved')+(who?' – '+who:'')+(np?'\n'+msgs.map(m=>'- '+m).join('\n'):'');
   setSave('Saving to Google Drive…');$('#saveF').disabled=true;
-  try{let svg='';try{svg=svgChart(s,layout(s,0,derive(s)),{day:0}).svg.replace(/<title>[^<]*<\/title>/g,'')}catch(e){}
+  try{let svg='';try{svg=chartSvgAll(s).replace(/<title>[^<]*<\/title>/g,'')}catch(e){}
     const r=await dpost({action:'save',id,station:s,svg,message,by:who,base:base[id]||'',force:!!force,changes});
     if(r.conflict){s.savedAt=prev;s.savedBy=prevBy;$('#saveF').disabled=false;setSave('Not saved – newer version on Drive',true);
       toast(s.name+' was saved on Drive by '+(r.by||'someone')+' after you opened it.',()=>ghSave(id,true),'Overwrite with mine');return}
@@ -646,6 +683,151 @@ $('#cCsv').onclick=()=>{if(!st())return;const day=+$('#cDay').value,{per,tot,all
   const rows=[[st().name+' – train count – '+(day?DAYN[day-1]+' ('+day+')':'All days')],['PF','Terminating','Originating','of which Term->Orig','Passing','EMU','Passenger','Total trains','Terminating train nos.','Originating train nos.']].concat(per.map(r=>row(r.pf,r.c)),[['Station total (sum of PFs)',sum.T,sum.O,sum.TO,sum.P,sum.E,sum.G,sum.T+sum.O+sum.P+sum.E+sum.G],['Unique train nos. at station',tot.T.size,tot.O.size,tot.TO.size,tot.P.size,tot.E.size,tot.G.size,uniq(tot).size,[...tot.T].sort().join(' '),[...tot.O].sort().join(' ')]],
       multi.length||both.length?[['Note: '+[...multi,...[...new Set(both)].map(x=>x+' both terminating and originating')].join('; ')]]:[]);
   save(fname('csv').replace('_Berthing_','_TrainCount_'),'﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'))};
+/* =================== STABLE / CENTER / WASHING LINES =================== */
+const ACTS=[['RPC','RPC','#7B7B7B','#fff'],['STB','Stabling','#FF0000','#fff'],['PM','PM maintenance','#F4B183','#000'],['SAM','Stabled after maintenance','#29B95C','#fff'],['SEC','Secondary','#8FD3FF','#000']];
+const actOf=k=>ACTS.find(a=>a[0]===k)||ACTS[1];
+function parseAct(v){v=String(v??'').trim().toLowerCase().replace(/[^a-z]/g,'');if(!v)return null;
+  if(v.startsWith('rpc'))return'RPC';if(v.startsWith('pm')||v.startsWith('prim')||v==='maintenance')return'PM';
+  if(v==='sam'||v.startsWith('stabledafter')||v.startsWith('stabledaft')||v.includes('aftermaint'))return'SAM';
+  if(v.startsWith('stab')||v==='stb'||v==='s')return'STB';if(v.startsWith('sec')||v==='sm')return'SEC';return null}
+const DAYU=['MON','TUE','WED','THU','FRI','SAT','SUN'];
+let LT=null;
+function deriveL(st){const names=st.lines.map(l=>String(l.name));
+  const it=st.occs.map((o,i)=>{const iss=[];const line=String(o.line??'').trim(),s0=toMin(o.from),e0=toMin(o.to),d=parseDays(o.days),tk=toks(o.train);
+    if(!line)iss.push('Line missing');else if(!names.includes(line))iss.push('“'+line+'” not in station setup');
+    if(!String(o.train??'').trim())iss.push('Train / rake no. missing');if(s0==null)iss.push('From time invalid');if(e0==null)iss.push('To time invalid');
+    if(!o.act||!ACTS.some(a=>a[0]===o.act))iss.push('Activity missing');
+    const hasBr=tk.some(k=>k.br!=null);tk.forEach(k=>{k.d=k.br!=null?parseDays(k.br):d;if(k.br!=null&&!k.d)iss.push('Days in ('+k.br+') not understood')});
+    let dd=d;if(hasBr){const all=tk.map(k=>k.d).filter(Boolean);dd=all.length?{set:[0,1,2,3,4,5,6].map(j=>all.some(x=>x.set[j])?1:0),label:''}:null}
+    if(!hasBr&&!d)iss.push('Days not understood');
+    let e=e0;if(s0!=null&&e0!=null){if(e0<=s0)e=e0+1440;if(e===s0)iss.push('From = To')}
+    const lab=String(o.train??'').trim();
+    return{i,o,line,s:s0,e,d:dd,tk,hasBr,lab,iss,clash:[],ok:!iss.length}});
+  // pieces per line per day row (overnight stays carry into next day's row)
+  const rows={};st.lines.forEach(l=>{rows[String(l.name)]=[[],[],[],[],[],[],[]]});
+  it.filter(x=>x.ok&&rows[x.line]).forEach(x=>{for(let d=0;d<7;d++){if(!x.d.set[d])continue;
+      const txt=x.hasBr?x.tk.filter(k=>k.d&&k.d.set[d]).map(k=>k.no).join(', '):x.lab;
+      rows[x.line][d].push({x,a:x.s,b:Math.min(x.e,1440),txt,cont:false,day:d});
+      if(x.e>1440)rows[x.line][(d+1)%7].push({x,a:0,b:x.e-1440,txt,cont:true,day:(d+1)%7})}});
+  // clashes on the same line & day row
+  Object.values(rows).forEach(R=>R.forEach((ps,d)=>{for(let a=0;a<ps.length;a++)for(let b=a+1;b<ps.length;b++){const P=ps[a],Q=ps[b];
+      if(P.x===Q.x)continue;if(P.a<Q.b&&Q.a<P.b){P.x.clash.push({j:Q.x.i,d});Q.x.clash.push({j:P.x.i,d});P.cl=Q.cl=true}}}));
+  return{it,rows}}
+const LHDR=22,LANE=20,BH=14,FB='bold 10px Arial';
+function layoutL(st,L){return st.lines.map(l=>{const name=String(l.name),R=L.rows[name]||[[],[],[],[],[],[],[]];
+    const days=R.map((ps,d)=>{const sorted=ps.slice().sort((p,q)=>p.a-q.a||q.b-p.b),lanes=[];
+      sorted.forEach(p=>{let k=lanes.findIndex(end=>end<=p.a);if(k<0){k=lanes.length;lanes.push(0)}lanes[k]=p.b;p.lane=k});
+      // join consecutive stretches of same train: label once
+      sorted.forEach((p,k)=>{const prev=sorted.slice(0,k).reverse().find(q=>q.lane===p.lane);p.joined=!!(prev&&prev.b===p.a&&prev.txt===p.txt)});
+      const hrs=ps.reduce((a,p)=>a+(p.b-p.a),0)/60;
+      return{d,ps:sorted,h:Math.max(1,lanes.length)*LANE,hrs}});
+    return{name,cap:l.cap,days,h:LHDR+days.reduce((a,r)=>a+r.h,0)}})}
+function svgLines(st,blocks,o){
+  const font=o.pdf?'helvetica':'Arial, Helvetica, sans-serif';
+  const bodyH=blocks.reduce((a,b)=>a+b.h,0),y0=TOPH+HDR+RUL,H=y0+bodyH+FOOT,out=[],P=x=>out.push(x);
+  P(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${font}"><rect width="${W}" height="${H}" fill="#fff"/>`);
+  const wef=st.wef?st.wef.split('-').reverse().join('/'):'';
+  P(`<text x="${W/2}" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#000">${esc('STABLE / CENTER / WASHING LINE BERTHING OF '+String(st.name||'').toUpperCase())}</text>`);
+  const sub=['UPDATED WITH EFFECT FROM '+(wef||'—'),st.note||'',o.pages>1?'SHEET '+o.page+' OF '+o.pages:''].filter(Boolean).join('   ·   ');
+  P(`<text x="${W/2}" y="50" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">${esc(sub)}</text>`);
+  let lx=X0;const ly=60;
+  ACTS.forEach(([k,t,c])=>{P(`<rect x="${lx}" y="${ly}" width="28" height="10" fill="${c}" stroke="#000" stroke-width=".5"/><text x="${lx+34}" y="${ly+9}" font-size="10" font-weight="bold" fill="#000">${esc(t.toUpperCase())}</text>`);lx+=48+tw(t.toUpperCase(),'bold 10px Arial')});
+  P(`<rect x="${lx}" y="${ly}" width="28" height="10" fill="#fff" stroke="#FF8C00" stroke-width="2"/><text x="${lx+34}" y="${ly+9}" font-size="10" font-weight="bold" fill="#000">CLASH</text>`);
+  P(`<text x="${X0+PW+CAPW}" y="${ly+9}" text-anchor="end" font-size="10" fill="#444">${o.pdf?'Rows = days (Mon...Sun)':'Rows = days (Mon…Sun)'} · bars to exact minute</text>`);
+  const hy=TOPH;
+  P(`<rect x="${M}" y="${hy}" width="${LEFT}" height="${HDR}" fill="#15191f"/><text x="${M+LEFT/2}" y="${hy+18}" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff">DAY</text>`);
+  for(let h=0;h<24;h++){const x=xm(h*60);P(`<rect x="${x}" y="${hy}" width="${PW/24}" height="${HDR}" fill="${h%2?'#2b3442':'#15191f'}"/><text x="${x+PW/48}" y="${hy+18}" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">${String(h).padStart(2,'0')}-${String(h+1).padStart(2,'0')}</text>`)}
+  P(`<rect x="${X0+PW}" y="${hy}" width="${CAPW}" height="${HDR}" fill="#15191f"/><text x="${X0+PW+CAPW/2}" y="${hy+17}" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#fff">HRS USED</text>`);
+  for(let t=0;t<=144;t++){const x=xm(t*10),hh=t%6===0?RUL:t%3===0?7:4;P(`<line x1="${x}" y1="${hy+HDR}" x2="${x}" y2="${hy+HDR+hh}" stroke="#333" stroke-width="${t%6===0?1:.5}"/>`)}
+  // grid (10-min boxes like the register)
+  for(let t=0;t<=144;t++){const x=xm(t*10);const c=t%6===0?['#8a9099',.9]:t%3===0?['#c3c8cf',.6]:['#e6e9ed',.5];P(`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0+bodyH}" stroke="${c[0]}" stroke-width="${c[1]}"/>`)}
+  let y=y0;
+  blocks.forEach(B=>{
+    P(`<rect x="${M}" y="${y}" width="${LEFT+PW+CAPW}" height="${LHDR}" fill="#dfe5ec" stroke="#000" stroke-width="1"/><text x="${M+8}" y="${y+16}" font-size="13" font-weight="bold" fill="#000">${esc(B.name)}</text>`);
+    if(B.cap)P(`<text x="${X0+PW-8}" y="${y+15}" text-anchor="end" font-size="10.5" font-weight="bold" fill="#333">${esc('Length: '+B.cap+' coaches')}</text>`);
+    y+=LHDR;
+    B.days.forEach(R=>{
+      P(`<rect x="${M}" y="${y}" width="${LEFT}" height="${R.h}" fill="#fff" stroke="#000" stroke-width=".8"/><text x="${M+LEFT/2}" y="${y+R.h/2+4}" text-anchor="middle" font-size="11" font-weight="bold" fill="#000">${DAYU[R.d]} (${R.d+1})</text>`);
+      P(`<rect x="${X0+PW}" y="${y}" width="${CAPW}" height="${R.h}" fill="#fff" stroke="#000" stroke-width=".8"/><text x="${X0+PW+CAPW/2}" y="${y+R.h/2+4}" text-anchor="middle" font-size="10.5" font-weight="bold" fill="#000">${R.hrs?R.hrs.toFixed(1):'–'}</text>`);
+      R.ps.forEach(p=>{const x1=xm(p.a),x2=xm(p.b),w=Math.max(x2-x1,1),by=y+p.lane*LANE+(LANE-BH)/2,[,an,fc,tc]=actOf(p.x.o.act);
+        const tip=`${p.x.lab} · ${an} · ${fmt(p.x.s)}-${p.x.e%1440===0?'24:00':fmt(p.x.e)} · starts ${p.x.d.label||'daily'}${p.cont?' · continued from previous night':''}${p.x.o.rem?' · '+p.x.o.rem:''}${p.x.clash.length?' · CLASH':''}`;
+        P(`<g class="lgrp" data-li="${p.x.i}">${o.pdf?'':'<title>'+esc(tip)+'</title>'}<rect x="${x1.toFixed(2)}" y="${by}" width="${w.toFixed(2)}" height="${BH}" fill="${fc}" stroke="${p.cl?'#FF8C00':'#000'}" stroke-width="${p.cl?2.5:.6}"/>`);
+        const tm=(p.cont?'…':fmt(p.x.s))+'-'+(p.x.e>1440&&!p.cont?'…':(p.x.e%1440===0?'24:00':fmt(p.x.e)));
+        const cands=p.joined?[tm,'']:[p.txt+'  '+tm,p.txt,''];const lab=cands.find(c=>tw(c,FB)+6<=w);
+        if(lab)P(`<text x="${((x1+x2)/2).toFixed(2)}" y="${by+BH-3.5}" text-anchor="middle" font-size="10" font-weight="bold" fill="${tc}">${esc(lab)}</text>`);
+        else if(!p.joined){const tx=x2+3,lw=tw(p.txt,FB);if(tx+lw<X0+PW)P(`<text x="${tx.toFixed(2)}" y="${by+BH-3.5}" font-size="10" font-weight="bold" fill="#000">${esc(p.txt)}</text>`)}
+        P('</g>')});
+      P(`<line x1="${M}" y1="${y+R.h}" x2="${X0+PW+CAPW}" y2="${y+R.h}" stroke="#9aa1aa" stroke-width=".6"/>`);
+      y+=R.h});
+    P(`<line x1="${M}" y1="${y}" x2="${X0+PW+CAPW}" y2="${y}" stroke="#000" stroke-width="1.6"/>`)});
+  P(`<rect x="${M}" y="${y0}" width="${LEFT+PW+CAPW}" height="${bodyH}" fill="none" stroke="#000" stroke-width="1.4"/>`);
+  const now=new Date();
+  P(`<text x="${M}" y="${H-8}" font-size="9" fill="#555">${esc('Generated '+now.toLocaleDateString('en-GB')+' '+now.toTimeString().slice(0,5)+' · Bars drawn to the exact minute; a stay past midnight continues in the next day\'s row. HRS USED = hours the line is occupied in that day row.')}</text>`);
+  P('</svg>');return{svg:out.join(''),H}}
+function lstatus(x){if(!x.ok)return['bad',x.iss.join(', ')];if(x.clash.length){const c=[...new Map(x.clash.map(c=>[c.j,c])).values()];return['bad','CLASH with '+c.map(c=>LT.it[c.j].lab+' ('+DAYN[c.d]+')').join(', ')]}return['ok','OK']}
+const ldesc=o=>(o.train||'(no train no.)')+' ['+(o.line||'?')+' '+(actOf(o.act)[1])+' '+(o.from||'?')+'-'+(o.to||'?')+']';
+function renderLines(hl=[]){const s=st();if(!s)return;const f=$('#lnF'),pv=f.value;
+  f.innerHTML='<option value="">All</option>'+s.lines.map(l=>`<option${String(l.name)===pv?' selected':''}>${esc(l.name)}</option>`).join('');
+  const q=$('#lnQ').value.trim().toLowerCase(),bad=$('#lnBad').checked,lo=s.lines.map(l=>`<option>${esc(l.name)}</option>`).join('');
+  const rows=LT.it.filter(x=>(!f.value||x.line===f.value)&&(!q||[x.o.train,x.o.rem].join(' ').toLowerCase().includes(q))&&(!bad||!x.ok||x.clash.length));
+  $('#lnT tbody').innerHTML=rows.map(x=>{const o=x.o,[c,m]=lstatus(x);const inp=(k,w,cls='',ph='')=>`<input data-g="${k}" value="${esc(o[k]??'')}" style="min-width:${w}px" class="${cls}" aria-label="${k}" placeholder="${ph}">`;
+    const ac=actOf(o.act);
+    return`<tr data-i="${x.i}"${hl.includes(x.i)?' class="hl"':''}><td class="num" style="color:var(--mute)">${x.i+1}</td>
+<td><select data-g="line" aria-label="Line" style="min-width:120px"><option value=""></option>${lo.replace(`<option>${esc(o.line)}</option>`,`<option selected>${esc(o.line)}</option>`)}${o.line&&!s.lines.some(l=>String(l.name)===String(o.line))?`<option selected>${esc(o.line)}</option>`:''}</select></td>
+<td>${inp('train',110)}</td>
+<td><select data-g="act" aria-label="Activity" style="min-width:190px;border-left:10px solid ${o.act?ac[2]:'transparent'}"><option value=""${o.act?'':' selected'}>—</option>${ACTS.map(([k,n])=>`<option value="${k}"${o.act===k?' selected':''}>${n}</option>`).join('')}</select></td>
+<td>${inp('from',64,x.s==null&&o.from?'bad':'')}</td><td>${inp('to',64,toMin(o.to)==null&&o.to?'bad':'')}</td><td>${inp('days',80,!x.d&&!x.hasBr?'bad':'','Daily')}</td><td>${inp('rem',150)}</td>
+<td class="st ${c}">${esc(m)}</td><td><button class="x" data-ldel="${x.i}" aria-label="Delete row">×</button></td></tr>`}).join('')||`<tr><td colspan="10" class="empty">${s.lines.length?'No occupations'+(q||f.value||bad?' match the filter':' yet — add or paste from Excel'):'No lines at this station — set No. of lines under Station setup'}.</td></tr>`}
+$('#lnT').addEventListener('change',e=>{const k=e.target.dataset.g;if(!k)return;const i=+e.target.closest('tr').dataset.i,o=st().occs[i],before=ldesc(o);let v=e.target.value.trim();
+  if(k==='from'||k==='to')v=normTime(v);if(k==='train')v=v.replace(/\s+/g,'');const old=String(o[k]??'');if(old===v){refresh();return}o[k]=v;
+  const FN={line:'Line',train:'Train/rake',act:'Activity',from:'From',to:'To',days:'Days',rem:'Remarks'}[k];
+  touch(before+': '+FN+' '+(k==='act'?actOf(old)[1]:old||'—')+' → '+(k==='act'?actOf(v)[1]:v||'—'));refresh()});
+$('#lnT').addEventListener('click',e=>{const d=e.target.dataset.ldel;if(d==null)return;const i=+d,row=st().occs.splice(i,1)[0];touch('Deleted '+ldesc(row));refresh();
+  toast('Occupation '+(row.train||'row')+' deleted',()=>{st().occs.splice(i,0,row);touch('Undo delete: restored '+ldesc(row));refresh()})});
+['#lnF','#lnBad'].forEach(q=>$(q).addEventListener('change',()=>renderLines()));$('#lnQ').addEventListener('input',()=>renderLines());
+$('#lnAdd').onclick=()=>{const s=st();if(!s.lines.length){toast('Set No. of lines under Station setup first');return}const line=$('#lnF').value||String(s.lines[0].name);
+  s.occs.unshift({line,train:'',act:'STB',from:'',to:'',days:'Daily',rem:''});touch('Added a new line occupation on '+line);refresh();const r=$('#lnT tbody tr');r&&r.querySelector('input[data-g=train]').focus()};
+$('#lnSort').onclick=()=>{const s=st(),ord=s.lines.map(l=>String(l.name));s.occs.sort((a,b)=>{const pa=ord.indexOf(String(a.line)),pb=ord.indexOf(String(b.line));return(pa<0?999:pa)-(pb<0?999:pb)||(toMin(a.from)??9999)-(toMin(b.from)??9999)});touch('Sorted line occupations by line & time (no timing changed)');refresh()};
+$('#lnPaste').onclick=()=>{$('#plTxt').value='';$('#dlgPasteL').showModal()};
+$('#dlgPasteL').addEventListener('close',()=>{if($('#dlgPasteL').returnValue!=='ok')return;const txt=$('#plTxt').value;if(!txt.trim())return;
+  const lines=txt.replace(/\r/g,'').split('\n').filter(l=>l.trim());const sep=lines.some(l=>l.includes('\t'))?'\t':',';
+  const rows=lines.map(l=>l.split(sep).map(c=>c.trim().replace(/^"|"$/g,'')));if(rows.length&&/line/i.test(rows[0][0])&&!parseAct(rows[0][2]))rows.shift();
+  const add=rows.filter(r=>r.some(Boolean)).map(r=>({line:r[0]||'',train:(r[1]||'').replace(/\s+/g,''),act:parseAct(r[2])||'',from:normTime(r[3]),to:normTime(r[4]),days:r[5]||'Daily',rem:r[6]||''}));
+  const s=st(),rp=document.querySelector('input[name=plm]:checked').value==='rep';
+  if(rp){const old=s.occs;s.occs=add;toast(add.length+' occupations imported (replaced)',()=>{s.occs=old;touch('Undo Excel import: previous '+old.length+' occupations restored');refresh()})}else{s.occs=s.occs.concat(add);toast(add.length+' occupations added')}
+  touch((rp?'Replaced all line occupations with ':'Added ')+add.length+' line occupations from Excel paste: '+add.slice(0,40).map(ldesc).join('; ')+(add.length>40?' …':''));refresh();tab('lines')});
+$('#lnCsv').onclick=()=>{const q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const rows=[['Line','Train/rake','Activity','From','To','Days','Remarks','Check']].concat(LT.it.map(x=>[x.o.line,x.o.train,actOf(x.o.act)[1],x.o.from,x.o.to,x.o.days,x.o.rem,lstatus(x)[1]]));
+  save(fname('csv').replace('_Berthing_','_Lines_'),'﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'))};
+function renderLineSetup(){const s=st();$('#sL').value=s.lines.length;$('#lnSetup').classList.toggle('hid',!s.lines.length);
+  const B=layoutL(s,LT);
+  $('#lsT tbody').innerHTML=s.lines.map((l,k)=>{const b=B[k],n=LT.it.filter(x=>x.line===String(l.name)).length,hrs=b.days.map(r=>r.hrs),pk=Math.max(0,...hrs);
+    return`<tr data-k="${k}"><td><input data-l="name" value="${esc(l.name)}" style="min-width:150px" aria-label="Line name"></td><td><input data-l="cap" value="${esc(l.cap??'')}" style="min-width:70px" aria-label="Length"></td><td class="num">${n}</td>${hrs.map(h=>`<td class="num">${h.toFixed(1)}</td>`).join('')}<td class="num"><b>${Math.round(pk/24*100)}%</b></td></tr>`}).join('')}
+$('#lsT').addEventListener('change',e=>{const f=e.target.dataset.l;if(!f)return;const k=+e.target.closest('tr').dataset.k,s=st(),v=e.target.value.trim();
+  if(f==='name'){const old=String(s.lines[k].name);if(!v||s.lines.some((l,j)=>j!==k&&String(l.name)===v)){e.target.value=old;toast('Line name must be unique and not blank');return}
+    s.occs.forEach(o=>{if(String(o.line)===old)o.line=v});s.lines[k].name=v;touch('Line '+old+' renamed to '+v)}
+  else{const o=s.lines[k].cap;s.lines[k].cap=v===''?'':+v||v;touch('Line '+s.lines[k].name+' length '+(o||'—')+' → '+(v||'—'))}refresh()});
+$('#sL').addEventListener('change',e=>{const s=st();let n=Math.min(60,Math.max(0,Math.round(+e.target.value||0)));if(!n&&!s.pfs.length){e.target.value=s.lines.length;toast('A station needs PFs or lines');return}
+  const o=s.lines.length;while(s.lines.length<n){let k=s.lines.length+1;while(s.lines.some(l=>String(l.name)==='Line '+k))k++;s.lines.push({name:'Line '+k,cap:''})}
+  const gone=s.lines.slice(n).map(l=>String(l.name)),used=s.occs.filter(x=>gone.includes(String(x.line))).length;s.lines.length=n;touch('No. of lines '+o+' → '+n);refresh();
+  if(used)toast(used+' occupation(s) are on removed lines — see Checks')});
+$('#chart').addEventListener('click',e=>{const g=e.target.closest('.lgrp');if(!g)return;const i=+g.dataset.li;tab('lines');$('#lnF').value='';$('#lnQ').value='';$('#lnBad').checked=false;renderLines([i]);
+  const r=$(`#lnT tr[data-i="${i}"]`);if(r)r.scrollIntoView({block:'center'})});
+function lineChecks(){const out=[],go=i=>`<a data-lgo="${i}">${esc(LT.it[i].lab||'row '+(i+1))}</a>`;
+  LT.it.forEach(x=>{if(!x.ok)out.push(`<div class="issue">Line occupation row ${x.i+1} ${go(x.i)}: ${esc(x.iss.join(', '))} — not drawn on chart.</div>`)});
+  const seen=new Set();LT.it.forEach(x=>x.clash.forEach(c=>{const key=[Math.min(x.i,c.j),Math.max(x.i,c.j),c.d].join('|');if(seen.has(key))return;seen.add(key);
+    const y=LT.it[c.j];out.push(`<div class="issue">${esc(x.line)} on ${DAYN[c.d]} (${c.d+1}): ${go(x.i)} ${actOf(x.o.act)[1]} ${fmt(x.s)}-${fmt(x.e)} overlaps ${go(c.j)} ${actOf(y.o.act)[1]} ${fmt(y.s)}-${fmt(y.e)}.</div>`)}));
+  return out}
+$('#ck').addEventListener('click',e=>{const i=e.target.dataset.lgo;if(i==null)return;tab('lines');$('#lnF').value='';$('#lnQ').value='';$('#lnBad').checked=false;renderLines([+i]);const r=$(`#lnT tr[data-i="${i}"]`);r&&r.scrollIntoView({block:'center'})});
+function applyVis(){const s=st();if(!s)return;const hp=s.pfs.length>0,hl=s.lines.length>0;
+  ['trains','count','finder'].forEach(t=>$(`.tabs button[data-t=${t}]`).classList.toggle('hid',!hp));$('.tabs button[data-t=lines]').classList.toggle('hid',!hl);
+  const ct=$('#cType');ct.options[0].disabled=!hp;ct.options[1].disabled=!hl;if(ct.value==='pf'&&!hp)ct.value='ln';if(ct.value==='ln'&&!hl)ct.value='pf';
+  $('#dayL').classList.toggle('hid',ct.value!=='pf');$('#noteCh').classList.toggle('hid',ct.value!=='pf');
+  $('#pfT').closest('.tw').classList.toggle('hid',!hp);$('#pfNote').classList.toggle('hid',!hp);$('#sGap').closest('label').classList.toggle('hid',!hp);
+  const cur0=$('.tabs button[aria-selected=true]');if(cur0&&cur0.classList.contains('hid'))tab('chart')}
+function chartSvgAll(s){const parts=[];if(s.pfs.length)parts.push(svgChart(s,layout(s,0,derive(s)),{day:0}));if(s.lines.length){const L=deriveL(s);parts.push(svgLines(s,layoutL(s,L),{}))}
+  if(parts.length<2)return parts[0]?parts[0].svg:'';let y=0;const inner=parts.map(p=>{const t=p.svg.replace('<svg ',`<svg y="${y}" `);y+=p.H;return t}).join('');
+  return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${y}" viewBox="0 0 ${W} ${y}">${inner}</svg>`}
 /* ---------- toast ---------- */
 let tT=null;function toast(m,undo,lbl='Undo'){const t=$('#toast');$('#toastT').textContent=m;$('#toastB').textContent=lbl;$('#toastB').classList.toggle('hid',!undo);$('#toastB').onclick=()=>{undo&&undo();t.classList.remove('on')};t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),undo?7000:3500)}
 
