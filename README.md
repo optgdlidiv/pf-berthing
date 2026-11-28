@@ -15,10 +15,11 @@ A single-page tool for drawing platform berthing charts at any station: trains, 
 Checks flag clashes (same PF, overlapping time, common day), bad timings and load > PF capacity. *Free PF finder* lists the free PFs for a proposed slot.
 
 ## Two chart formats
-When creating a station tick **PF Berthing** and/or **Stable / Center / Washing lines** and give the number of each. Name the lines as you like under *Station setup* (W/L 1, Stable line 3, Center line 2A, Shunting neck 1 …).
-- **PF Berthing** – one row per PF, terminating / originating boxes (as before).
-- **Lines** – one block per line, columns 00–24 hrs, rows Mon–Sun. Enter in **Line occupations**: Line · Train/rake · Activity (RPC, Stabling, PM maintenance, Stabled after maintenance, Secondary) · From · To · Days. Consecutive stretches of the same rake join into one bar; a stay past midnight continues in the next day's row (Sun → Mon). Overlaps on the same line and day are flagged as clashes.
-Choose which one to view/print with **Chart** on the Chart tab. **Click the title, a PF number or a line name on the chart to rename it** (also under *Station setup*); every rename goes into the change log.
+- **PF Berthing** – one row per PF, terminating / originating boxes.
+- **Lines** – *Station setup → Washing / Stabling / Center lines*: choose **Line type** (Washing line, Stabling line, Center line, Stabling & washing line combined) and press **+ Add line**. Lines are named WL 1, SL 1, CL 1, SWL 1 … and can be renamed (here or by clicking the name on the chart) or deleted.
+  Enter stays in **Line occupations**: Line · Train/rake · Activity · From · To · Days. Activities follow the line type – washing: PM maintenance, Secondary, RPC; stabling / center: Stabling, Stabled after maintenance, RPC; combined: all (e.g. maintained 4 h then stabled 2 h on the same line).
+  The chart shows one block per line (00–24 hrs × Mon–Sun), grouped by type; a stay past midnight continues in the next day's row.
+Pick what to view/print in **Chart**: PF Berthing, All lines, or one line type. Click a title, PF number or line name on the chart to rename it.
 
 ## Train count
 **Train count** tab: PF-wise and station-total counts of Terminating, Originating (and how many terminate & originate on the same PF), Passing, EMU and Passenger trains, with the train numbers. Comma-separated train nos. are counted individually (`19337(1),20983(3,6)` = 2); a train no. in several rows is counted once. Choose *All days* or one day; download as CSV.

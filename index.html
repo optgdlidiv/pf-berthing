@@ -105,7 +105,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
 
   <section id="t-chart">
     <div class="bar">
-      <label>Chart <select id="cType"><option value="pf">PF Berthing</option><option value="ln">Stable / Center / Washing lines</option></select></label>
+      <label>Chart <select id="cType"><option value="pf">PF Berthing</option><option value="ln">All lines</option><option value="ln:WL">Washing lines</option><option value="ln:SL">Stabling lines</option><option value="ln:CL">Center lines</option><option value="ln:SWL">Stabling &amp; washing lines</option></select></label>
       <label id="dayL">Show <select id="day">
         <option value="0">All days</option><option value="1">Mon (1)</option><option value="2">Tue (2)</option><option value="3">Wed (3)</option><option value="4">Thu (4)</option><option value="5">Fri (5)</option><option value="6">Sat (6)</option><option value="7">Sun (7)</option></select></label>
       <label>Zoom <select id="zoom"><option value="fit">Fit width</option><option value="1">100%</option><option value="1.4">140%</option><option value="2">200%</option></select></label>
@@ -157,14 +157,14 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
         <label id="tPfL">PF chart title<input id="sTPf" class="fld"></label>
         <label id="tLnL">Lines chart title<input id="sTLn" class="fld"></label>
         <label>No. of PFs (0 if none)<input id="sN" class="fld" type="number" min="0" max="40"></label>
-        <label>No. of stable / center / washing lines (0 if none)<input id="sL" class="fld" type="number" min="0" max="60"></label>
         <label>Clearance gap between occupations on a PF (min)<input id="sGap" class="fld" type="number" min="0" max="60"></label>
       </div>
       <div class="tw" style="max-height:none"><table id="pfT"><thead><tr><th>PF name</th><th>Capacity (coaches)</th><th class="num">Trains</th><th class="num">Mon</th><th class="num">Tue</th><th class="num">Wed</th><th class="num">Thu</th><th class="num">Fri</th><th class="num">Sat</th><th class="num">Sun</th><th class="num">Peak use</th></tr></thead><tbody></tbody></table></div>
       <p class="note" id="pfNote">Day columns = hours the PF is occupied that day (occupation past midnight counted on its start day). Peak use = busiest day ÷ 24 h.</p>
-      <div id="lnSetup"><h3 style="margin:18px 0 6px">Stable / Center / Washing lines</h3>
-      <div class="tw" style="max-height:none"><table id="lsT"><thead><tr><th>Line name</th><th>Length (coaches)</th><th class="num">Entries</th><th class="num">Mon</th><th class="num">Tue</th><th class="num">Wed</th><th class="num">Thu</th><th class="num">Fri</th><th class="num">Sat</th><th class="num">Sun</th><th class="num">Peak use</th></tr></thead><tbody></tbody></table></div>
-      <p class="note">Name lines as you like (e.g. W/L 1, Stable line 3, Center line 2A, Shunting neck 1). Day columns = hours occupied in that day's row, including stays carried over from the previous night.</p></div>
+      <div id="lnSetup"><h3 style="margin:18px 0 6px">Washing / Stabling / Center lines</h3>
+      <div class="bar"><label>Line type <select id="ltSel"><option value="WL">Washing line</option><option value="SL">Stabling line</option><option value="CL">Center line</option><option value="SWL">Stabling &amp; washing line (combined)</option></select></label><button class="btn pri" id="ltAdd">+ Add line</button><span class="note" id="ltHint"></span></div>
+      <div class="tw" style="max-height:none"><table id="lsT"><thead><tr><th>Type</th><th>Line name</th><th>Length (coaches)</th><th class="num">Entries</th><th class="num">Mon</th><th class="num">Tue</th><th class="num">Wed</th><th class="num">Thu</th><th class="num">Fri</th><th class="num">Sat</th><th class="num">Sun</th><th class="num">Peak use</th><th></th></tr></thead><tbody></tbody></table></div>
+      <p class="note">Choose a type and press <b>+ Add line</b> — lines are named WL 1, WL 2 … / SL 1 … / CL 1 … / SWL 1 …; rename any line here or by clicking its name on the chart. Washing lines take maintenance activities (PM maintenance, Secondary, RPC), stabling and center lines take Stabling / Stabled after maintenance / RPC, and a combined line takes all — e.g. maintained 4 h then stabled 2 h on the same line. Day columns = hours occupied in that day's row.</p></div>
       <div class="bar" style="margin-top:14px">
         <button class="btn" id="dup">Duplicate station</button>
         <span style="flex:1"></span>
@@ -211,7 +211,7 @@ textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:
   <p class="note" style="margin:12px 0 4px">Charts for this station (tick one or both):</p>
   <div class="grid2">
     <div class="panel"><label style="font-weight:600"><input type="checkbox" id="nPfOn" checked> PF Berthing</label><label class="note" style="display:block;margin-top:6px">No. of PFs<input id="nN" class="fld" type="number" min="1" max="40" value="7" style="width:100%"></label></div>
-    <div class="panel"><label style="font-weight:600"><input type="checkbox" id="nLnOn"> Stable / Center / Washing lines</label><label class="note" style="display:block;margin-top:6px">No. of lines<input id="nL" class="fld" type="number" min="1" max="60" value="6" style="width:100%"></label></div>
+    <div class="panel"><label style="font-weight:600"><input type="checkbox" id="nLnOn"> Washing / Stabling / Center lines</label><p class="note" style="margin:6px 0 0">Lines are added one by one under Station setup (choose type → + Add line).</p></div>
   </div>
   <div class="bar"><button class="btn pri" value="ok">Create</button><button class="btn" value="cancel" formnovalidate>Cancel</button></div>
 </form></dialog>
@@ -271,7 +271,7 @@ function parseKind(v){v=String(v??'').trim().toLowerCase().replace(/[^a-z]/g,'')
   if(v.startsWith('term'))return'T';if(v.startsWith('orig'))return'O';if(v==='t')return'T';if(v==='o')return'O';
   if(v.startsWith('pass')&&v!=='passenger')return'P';if(v==='passenger'||v==='psgr'||v==='g')return'G';if(v.startsWith('emu')||v==='e')return'E';if(v==='p')return'P';return null}
 function setKind(t,k){t.kind=k;if(k==='O'){t.dep=t.dep||t.arr;t.arr=''}else if(k!=='TO'){t.arr=t.arr||t.dep;t.dep=''}}
-function migrate(stn){stn.pfs??=[];stn.trains??=[];stn.lines??=[];stn.occs??=[];(stn.trains||[]).forEach(t=>{if(!t.kind){t.kind=legacy(t);if(t.kind!=='TO')setKind(t,t.kind)}delete t.type})}
+function migrate(stn){stn.pfs??=[];stn.trains??=[];stn.lines??=[];stn.occs??=[];stn.lines.forEach(l=>{if(!l.type)l.type=guessType(l.name)});(stn.trains||[]).forEach(t=>{if(!t.kind){t.kind=legacy(t);if(t.kind!=='TO')setKind(t,t.kind)}delete t.type})}
 const tname=c=>({T:'Terminating',O:'Originating',TO:'Term → Orig',P:'Passing',E:'EMU',G:'Passenger'}[c]);
 
 /* ---------- train-no tokens with own days, e.g. 19337(1),20983(3,6) ---------- */
@@ -435,7 +435,7 @@ function refresh(){Object.values(stations).forEach(migrate);
   $('#bCk').textContent=(nC+nB+nW)||'';$('#bTr').textContent=st().trains.length||'';
   LT=deriveL(st());crossPF();const nL=LT.it.filter(x=>!x.ok||x.clash.length).length+Object.keys(XW).length;$('#bLn').textContent=st().occs.length||'';$('#bCk').textContent=(nC+nB+nW+nL)||'';
   applyVis();drawChart();renderTrains();renderSetup();renderLineSetup();renderLines();renderFinder();renderChecks();renderLog();renderCount();if(!ARTIFACT)updFile()}
-function drawChart(){const day=+$('#day').value,ln=$('#cType').value==='ln';const {svg,H}=ln?svgLines(st(),layoutL(st(),LT),{}):svgChart(st(),layout(st(),day,IT),{day});
+function drawChart(){const day=+$('#day').value,ln=$('#cType').value.startsWith('ln');const {svg,H}=ln?svgLines(st(),lineBlocks(st(),LT,ltf()),{}):svgChart(st(),layout(st(),day,IT),{day});
   const box=$('#chart');box.innerHTML=svg;const el=box.querySelector('svg');const z=$('#zoom').value;
   if(z==='fit'){el.style.width='100%';el.style.height='auto'}else{el.style.width=W*+z+'px';el.style.height=H*+z+'px'}}
 $('#chart').addEventListener('click',e=>{const g=e.target.closest('.grp');if(!g)return;const ids=g.dataset.ids.split(',').map(Number);
@@ -519,9 +519,9 @@ const newId=n=>String(n).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$
 $('#newSt').onclick=$('#newSt2').onclick=()=>{$('#fNew').reset();$('#dlgNew').showModal()};
 $('#dlgNew').addEventListener('close',()=>{if($('#dlgNew').returnValue!=='ok')return;const name=$('#nName').value.trim();if(!name)return;
   const pOn=$('#nPfOn').checked,lOn=$('#nLnOn').checked;if(!pOn&&!lOn){toast('Tick PF Berthing and/or Lines');return}
-  const n=pOn?Math.min(40,Math.max(1,+$('#nN').value||1)):0,nl=lOn?Math.min(60,Math.max(1,+$('#nL').value||1)):0;
-  showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[],lines:Array.from({length:nl},(_,k)=>({name:'Line '+(k+1),cap:''})),occs:[],log:[]};cur=id;
-  touch('Station created with '+[n?n+' PFs':'',nl?nl+' lines':''].filter(Boolean).join(' and '));if(!n)$('#cType').value='ln';refresh();tab('setup');if(nl)toast('Rename lines by clicking their name on the chart, or under Station setup (e.g. Stable Line 1, W/L 1, Center line 2A)')});
+  const n=pOn?Math.min(40,Math.max(1,+$('#nN').value||1)):0,nl=0;
+  showBanner('');const id=newId(name);stations[id]={id,name,wef:new Date().toISOString().slice(0,10),note:'MASTER COPY',gap:0,pfs:Array.from({length:n},(_,k)=>({name:String(k+1),cap:24})),trains:[],lines:[],occs:[],useLines:lOn,log:[]};cur=id;
+  touch('Station created'+(n?' with '+n+' PFs':'')+(lOn?(n?' and':' with')+' washing / stabling / center lines':''));if(!n)$('#cType').value='ln';refresh();tab('setup');if(lOn){$('#lnSetup').scrollIntoView({block:'start'});$('#ltSel').focus()}if(false)toast('Rename lines by clicking their name on the chart, or under Station setup (e.g. Stable Line 1, W/L 1, Center line 2A)')});
 $('#dup').onclick=()=>{const s=JSON.parse(JSON.stringify(st()));const from=s.name;s.id=newId(s.name);s.name=s.name+' (copy)';s.log=[];stations[s.id]=s;cur=s.id;touch('Duplicated from '+from);refresh();toast('Duplicated — rename it under Station & PFs')};
 let delArm=0;$('#del').onclick=async e=>{if(Date.now()-delArm>4000){delArm=Date.now();e.target.textContent='Click again to delete';setTimeout(()=>e.target.textContent='Delete station',4000);return}
   const id=cur,bk=stations[id];delete stations[id];cur=Object.keys(stations)[0]||null;cache();refresh();e.target.textContent='Delete station';
@@ -582,7 +582,7 @@ const loadJs=u=>new Promise((ok,no)=>{const s=document.createElement('script');s
 let libs=null;const PAPER={A4:[841.89,595.28],A3:[1190.55,841.89],A2:[1683.78,1190.55]};
 $('#pdf').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='Preparing…';
   try{libs??=loadJs('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(()=>loadJs('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js'));await libs;
-    const ln=$('#cType').value==='ln',[pw,ph]=PAPER[$('#paper').value],mg=18,sc=(pw-2*mg)/W,day=+$('#day').value,rows=ln?layoutL(st(),LT):layout(st(),day,IT);
+    const ln=$('#cType').value.startsWith('ln'),[pw,ph]=PAPER[$('#paper').value],mg=18,sc=(pw-2*mg)/W,day=+$('#day').value,rows=ln?lineBlocks(st(),LT,ltf()):layout(st(),day,IT);
     const fixed=TOPH+HDR+RUL+FOOT,avail=(ph-2*mg)/sc-fixed,pages=[];let curp=[],h=0;
     rows.forEach(r=>{if(curp.length&&h+r.h>avail){pages.push(curp);curp=[];h=0}curp.push(r);h+=r.h});if(curp.length)pages.push(curp);
     const doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'pt',format:[pw,ph]});const host=$('#pdfHost');
@@ -591,7 +591,7 @@ $('#pdf').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='Prep
     host.innerHTML='';await save(ln?fname('pdf').replace('_Berthing_','_Lines_'):fname('pdf'),doc.output('blob'),'PDF ready: '+pages.length+' sheet(s)')}
   catch(x){console.error(x);toast('PDF could not be made here – use Download SVG and print it')}
   b.disabled=false;b.textContent='Download PDF'};
-$('#svgDl').onclick=()=>{const day=+$('#day').value,ln=$('#cType').value==='ln';save(ln?fname('svg').replace('_Berthing_','_Lines_'):fname('svg'),(ln?svgLines(st(),layoutL(st(),LT),{}):svgChart(st(),layout(st(),day,IT),{day})).svg.replace(/<title>[^<]*<\/title>/g,''))};
+$('#svgDl').onclick=()=>{const day=+$('#day').value,ln=$('#cType').value.startsWith('ln');save(ln?fname('svg').replace('_Berthing_','_Lines_'):fname('svg'),(ln?svgLines(st(),lineBlocks(st(),LT,ltf()),{}):svgChart(st(),layout(st(),day,IT),{day})).svg.replace(/<title>[^<]*<\/title>/g,''))};
 
 /* ---------- Google Drive storage via your Apps Script web app ---------- */
 let driveFolder='';
@@ -690,6 +690,11 @@ $('#cCsv').onclick=()=>{if(!st())return;const day=+$('#cDay').value,{per,tot,all
 /* =================== STABLE / CENTER / WASHING LINES =================== */
 const ACTS=[['RPC','RPC','#7B7B7B','#fff'],['STB','Stabling','#FF0000','#fff'],['PM','PM maintenance','#F4B183','#000'],['SAM','Stabled after maintenance','#29B95C','#fff'],['SEC','Secondary','#8FD3FF','#000']];
 const actOf=k=>ACTS.find(a=>a[0]===k)||ACTS[1];
+const LTYPES=[['WL','Washing line','WL',['PM','SEC','RPC']],['SL','Stabling line','SL',['STB','SAM','RPC']],['CL','Center line','CL',['STB','SAM','RPC']],['SWL','Stabling & washing line','SWL',['PM','SEC','RPC','STB','SAM']]];
+const ltype=t=>LTYPES.find(x=>x[0]===t)||LTYPES[1];
+function guessType(n){n=String(n||'').toLowerCase().replace(/\s+/g,'');if(/^(w\/?l|wash|pit)/.test(n))return'WL';if(/^(c\/?l|cent)/.test(n))return'CL';if(/^swl/.test(n))return'SWL';return'SL'}
+function nextLineName(s,t){const p=ltype(t)[2];let k=1;while(s.lines.some(l=>String(l.name).toUpperCase()===(p+' '+k)))k++;return p+' '+k}
+const lineOf=(s,name)=>s.lines.find(l=>String(l.name)===String(name));
 function parseAct(v){v=String(v??'').trim().toLowerCase().replace(/[^a-z]/g,'');if(!v)return null;
   if(v.startsWith('rpc'))return'RPC';if(v.startsWith('pm')||v.startsWith('prim')||v==='maintenance')return'PM';
   if(v==='sam'||v.startsWith('stabledafter')||v.startsWith('stabledaft')||v.includes('aftermaint'))return'SAM';
@@ -705,8 +710,9 @@ function deriveL(st){const names=st.lines.map(l=>String(l.name));
     let dd=d;if(hasBr){const all=tk.map(k=>k.d).filter(Boolean);dd=all.length?{set:[0,1,2,3,4,5,6].map(j=>all.some(x=>x.set[j])?1:0),label:''}:null}
     if(!hasBr&&!d)iss.push('Days not understood');
     let e=e0;if(s0!=null&&e0!=null){if(e0<=s0)e=e0+1440;if(e===s0)iss.push('From = To')}
-    const lab=String(o.train??'').trim();
-    return{i,o,line,s:s0,e,d:dd,tk,hasBr,lab,iss,clash:[],ok:!iss.length}});
+    const lab=String(o.train??'').trim(),L0=st.lines.find(l=>String(l.name)===line),warn=[];
+    if(L0&&o.act&&!ltype(L0.type)[3].includes(o.act))warn.push(actOf(o.act)[1]+' is not a '+ltype(L0.type)[1].toLowerCase()+' activity');
+    return{i,o,line,s:s0,e,d:dd,tk,hasBr,lab,iss,warn,clash:[],ok:!iss.length}});
   // pieces per line per day row (overnight stays carry into next day's row)
   const rows={};st.lines.forEach(l=>{rows[String(l.name)]=[[],[],[],[],[],[],[]]});
   it.filter(x=>x.ok&&rows[x.line]).forEach(x=>{for(let d=0;d<7;d++){if(!x.d.set[d])continue;
@@ -726,6 +732,9 @@ function layoutL(st,L){return st.lines.map((l,k)=>{const name=String(l.name),R=L
       const hrs=ps.reduce((a,p)=>a+(p.b-p.a),0)/60;
       return{d,ps:sorted,h:Math.max(1,lanes.length)*LANE,hrs}});
     return{k,name,cap:l.cap,days,h:LHDR+days.reduce((a,r)=>a+r.h,0)}})}
+function lineBlocks(st,L,f){const B=layoutL(st,L),out=[];
+  LTYPES.forEach(([t,nm])=>{if(f&&f!==t)return;const bs=B.filter(b=>(st.lines[b.k].type||'SL')===t);if(!bs.length)return;out.push({sec:true,title:nm.toUpperCase()+'S',h:26});out.push(...bs)});return out}
+const ltf=()=>{const v=$('#cType').value;return v.startsWith('ln:')?v.slice(3):''};
 function svgLines(st,blocks,o){
   const font=o.pdf?'helvetica':'Arial, Helvetica, sans-serif';
   const bodyH=blocks.reduce((a,b)=>a+b.h,0),y0=TOPH+HDR+RUL,H=y0+bodyH+FOOT,out=[],P=x=>out.push(x);
@@ -747,6 +756,7 @@ function svgLines(st,blocks,o){
   for(let t=0;t<=144;t++){const x=xm(t*10);const c=t%6===0?['#8a9099',.9]:t%3===0?['#c3c8cf',.6]:['#e6e9ed',.5];P(`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y0+bodyH}" stroke="${c[0]}" stroke-width="${c[1]}"/>`)}
   let y=y0;
   blocks.forEach(B=>{
+    if(B.sec){P(`<rect x="${M}" y="${y}" width="${LEFT+PW+CAPW}" height="${B.h}" fill="#15191f"/><text x="${M+10}" y="${y+18}" font-size="14" font-weight="bold" fill="#fff" letter-spacing=".5">${esc(B.title)}</text>`);y+=B.h;return}
     P(`<rect x="${M}" y="${y}" width="${LEFT+PW+CAPW}" height="${LHDR}" fill="#dfe5ec" stroke="#000" stroke-width="1"/><text class="ed" data-ed="line:${B.k}" x="${M+8}" y="${y+16}" font-size="13" font-weight="bold" fill="#000">${esc(B.name)}</text>`);
     if(B.cap)P(`<text x="${X0+PW-8}" y="${y+15}" text-anchor="end" font-size="10.5" font-weight="bold" fill="#333">${esc('Length: '+B.cap+' coaches')}</text>`);
     y+=LHDR;
@@ -769,18 +779,20 @@ function svgLines(st,blocks,o){
   P(`<text x="${M}" y="${H-8}" font-size="9" fill="#555">${esc('Generated '+now.toLocaleDateString('en-GB')+' '+now.toTimeString().slice(0,5)+' · Bars drawn to the exact minute; a stay past midnight continues in the next day\'s row. HRS USED = hours the line is occupied in that day row.')}</text>`);
   P('</svg>');return{svg:out.join(''),H}}
 function lstatus(x){if(!x.ok)return['bad',x.iss.join(', ')];if(x.clash.length){const c=[...new Map(x.clash.map(c=>[c.j,c])).values()];return['bad','CLASH with '+c.map(c=>LT.it[c.j].lab+' ('+DAYN[c.d]+')').join(', ')]}
+  if(x.warn.length)return['warn',x.warn.join(', ')];
   if(XW[x.i])return['warn','Still on PF at this time: '+XW[x.i].map(z=>z.no+' PF '+z.pf+' till '+fmt(IT[z.pfi].e)).join(', ')];return['ok','OK']}
 const ldesc=o=>(o.train||'(no train no.)')+' ['+(o.line||'?')+' '+(actOf(o.act)[1])+' '+(o.from||'?')+'-'+(o.to||'?')+']';
 function renderLines(hl=[]){const s=st();if(!s)return;const f=$('#lnF'),pv=f.value;
   f.innerHTML='<option value="">All</option>'+s.lines.map(l=>`<option${String(l.name)===pv?' selected':''}>${esc(l.name)}</option>`).join('');
-  const q=$('#lnQ').value.trim().toLowerCase(),bad=$('#lnBad').checked,lo=s.lines.map(l=>`<option>${esc(l.name)}</option>`).join('');
-  const rows=LT.it.filter(x=>(!f.value||x.line===f.value)&&(!q||[x.o.train,x.o.rem].join(' ').toLowerCase().includes(q))&&(!bad||!x.ok||x.clash.length||XW[x.i]));
+  const q=$('#lnQ').value.trim().toLowerCase(),bad=$('#lnBad').checked;
+  const lo=LTYPES.map(([t,nm])=>{const ls=s.lines.filter(l=>l.type===t);return ls.length?`<optgroup label="${nm}s">${ls.map(l=>`<option>${esc(l.name)}</option>`).join('')}</optgroup>`:''}).join('');
+  const rows=LT.it.filter(x=>(!f.value||x.line===f.value)&&(!q||[x.o.train,x.o.rem].join(' ').toLowerCase().includes(q))&&(!bad||!x.ok||x.clash.length||XW[x.i]||x.warn.length));
   $('#lnT tbody').innerHTML=rows.map(x=>{const o=x.o,[c,m]=lstatus(x);const inp=(k,w,cls='',ph='')=>`<input data-g="${k}" value="${esc(o[k]??'')}" style="min-width:${w}px" class="${cls}" aria-label="${k}" placeholder="${ph}">`;
-    const ac=actOf(o.act);
+    const ac=actOf(o.act),LL=lineOf(s,o.line),allowed=LL?ltype(LL.type)[3]:ACTS.map(a=>a[0]),opts=ACTS.filter(a=>allowed.includes(a[0])||a[0]===o.act);
     return`<tr data-i="${x.i}"${hl.includes(x.i)?' class="hl"':''}><td class="num" style="color:var(--mute)">${x.i+1}</td>
 <td><select data-g="line" aria-label="Line" style="min-width:120px"><option value=""></option>${lo.replace(`<option>${esc(o.line)}</option>`,`<option selected>${esc(o.line)}</option>`)}${o.line&&!s.lines.some(l=>String(l.name)===String(o.line))?`<option selected>${esc(o.line)}</option>`:''}</select></td>
 <td>${inp('train',110)}</td>
-<td><select data-g="act" aria-label="Activity" style="min-width:190px;border-left:10px solid ${o.act?ac[2]:'transparent'}"><option value=""${o.act?'':' selected'}>—</option>${ACTS.map(([k,n])=>`<option value="${k}"${o.act===k?' selected':''}>${n}</option>`).join('')}</select></td>
+<td><select data-g="act" aria-label="Activity" style="min-width:190px;border-left:10px solid ${o.act?ac[2]:'transparent'}"><option value=""${o.act?'':' selected'}>—</option>${opts.map(([k,n])=>`<option value="${k}"${o.act===k?' selected':''}>${n}</option>`).join('')}</select></td>
 <td>${inp('from',64,x.s==null&&o.from?'bad':'')}</td><td>${inp('to',64,toMin(o.to)==null&&o.to?'bad':'')}</td><td>${inp('days',80,!x.d&&!x.hasBr?'bad':'','Daily')}</td><td>${inp('rem',150)}</td>
 <td class="st ${c}">${esc(m)}</td><td><button class="x" data-ldel="${x.i}" aria-label="Delete row">×</button></td></tr>`}).join('')||`<tr><td colspan="10" class="empty">${s.lines.length?'No occupations'+(q||f.value||bad?' match the filter':' yet — add or paste from Excel'):'No lines at this station — set No. of lines under Station setup'}.</td></tr>`}
 $('#lnT').addEventListener('change',e=>{const k=e.target.dataset.g;if(!k)return;const i=+e.target.closest('tr').dataset.i,o=st().occs[i],before=ldesc(o);let v=e.target.value.trim();
@@ -790,8 +802,8 @@ $('#lnT').addEventListener('change',e=>{const k=e.target.dataset.g;if(!k)return;
 $('#lnT').addEventListener('click',e=>{const d=e.target.dataset.ldel;if(d==null)return;const i=+d,row=st().occs.splice(i,1)[0];touch('Deleted '+ldesc(row));refresh();
   toast('Occupation '+(row.train||'row')+' deleted',()=>{st().occs.splice(i,0,row);touch('Undo delete: restored '+ldesc(row));refresh()})});
 ['#lnF','#lnBad'].forEach(q=>$(q).addEventListener('change',()=>renderLines()));$('#lnQ').addEventListener('input',()=>renderLines());
-$('#lnAdd').onclick=()=>{const s=st();if(!s.lines.length){toast('Set No. of lines under Station setup first');return}const line=$('#lnF').value||String(s.lines[0].name);
-  s.occs.unshift({line,train:'',act:'STB',from:'',to:'',days:'Daily',rem:''});touch('Added a new line occupation on '+line);refresh();const r=$('#lnT tbody tr');r&&r.querySelector('input[data-g=train]').focus()};
+$('#lnAdd').onclick=()=>{const s=st();if(!s.lines.length){toast('Add lines under Station setup first (choose type → + Add line)');return}const line=$('#lnF').value||String(s.lines[0].name);
+  s.occs.unshift({line,train:'',act:ltype((lineOf(s,line)||{}).type)[3][0],from:'',to:'',days:'Daily',rem:''});touch('Added a new line occupation on '+line);refresh();const r=$('#lnT tbody tr');r&&r.querySelector('input[data-g=train]').focus()};
 $('#lnSort').onclick=()=>{const s=st(),ord=s.lines.map(l=>String(l.name));s.occs.sort((a,b)=>{const pa=ord.indexOf(String(a.line)),pb=ord.indexOf(String(b.line));return(pa<0?999:pa)-(pb<0?999:pb)||(toMin(a.from)??9999)-(toMin(b.from)??9999)});touch('Sorted line occupations by line & time (no timing changed)');refresh()};
 $('#lnPaste').onclick=()=>{$('#plTxt').value='';$('#dlgPasteL').showModal()};
 $('#dlgPasteL').addEventListener('close',()=>{if($('#dlgPasteL').returnValue!=='ok')return;const txt=$('#plTxt').value;if(!txt.trim())return;
@@ -804,17 +816,23 @@ $('#dlgPasteL').addEventListener('close',()=>{if($('#dlgPasteL').returnValue!=='
 $('#lnCsv').onclick=()=>{const q=v=>{v=String(v??'');return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
   const rows=[['Line','Train/rake','Activity','From','To','Days','Remarks','Check']].concat(LT.it.map(x=>[x.o.line,x.o.train,actOf(x.o.act)[1],x.o.from,x.o.to,x.o.days,x.o.rem,lstatus(x)[1]]));
   save(fname('csv').replace('_Berthing_','_Lines_'),'﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n'))};
-function renderLineSetup(){const s=st();$('#sL').value=s.lines.length;$('#lnSetup').classList.toggle('hid',!s.lines.length);
-  const B=layoutL(s,LT);
+function renderLineSetup(){const s=st();$('#lnSetup').classList.remove('hid');
+  const B=layoutL(s,LT),t=$('#ltSel').value,ty=ltype(t);$('#ltHint').textContent='Next: '+nextLineName(s,t)+' ('+ty[1].toLowerCase()+')';
   $('#lsT tbody').innerHTML=s.lines.map((l,k)=>{const b=B[k],n=LT.it.filter(x=>x.line===String(l.name)).length,hrs=b.days.map(r=>r.hrs),pk=Math.max(0,...hrs);
-    return`<tr data-k="${k}"><td><input data-l="name" value="${esc(l.name)}" style="min-width:150px" aria-label="Line name"></td><td><input data-l="cap" value="${esc(l.cap??'')}" style="min-width:70px" aria-label="Length"></td><td class="num">${n}</td>${hrs.map(h=>`<td class="num">${h.toFixed(1)}</td>`).join('')}<td class="num"><b>${Math.round(pk/24*100)}%</b></td></tr>`}).join('')}
+    return`<tr data-k="${k}"><td><select data-l="type" aria-label="Line type" style="min-width:170px">${LTYPES.map(([v,nm])=>`<option value="${v}"${l.type===v?' selected':''}>${nm}</option>`).join('')}</select></td>
+<td><input data-l="name" value="${esc(l.name)}" style="min-width:150px;font-weight:600" aria-label="Line name"></td><td><input data-l="cap" value="${esc(l.cap??'')}" style="min-width:70px" aria-label="Length"></td><td class="num">${n}</td>${hrs.map(h=>`<td class="num">${h.toFixed(1)}</td>`).join('')}<td class="num"><b>${Math.round(pk/24*100)}%</b></td>
+<td><button class="x" data-lxdel="${k}" aria-label="Delete line">×</button></td></tr>`}).join('')||'<tr><td colspan="13" class="empty">No lines yet — choose a line type above and press + Add line.</td></tr>'}
+$('#ltSel').addEventListener('change',()=>st()&&renderLineSetup());
+$('#ltAdd').onclick=()=>{const s=st();if(!s)return;const t=$('#ltSel').value,name=nextLineName(s,t);s.lines.push({name,type:t,cap:''});s.useLines=true;
+  touch('Added '+ltype(t)[1].toLowerCase()+' '+name);if(s.lines.length===1&&!s.pfs.length)$('#cType').value='ln';refresh();
+  const inp=[...$$('#lsT input[data-l=name]')].pop();if(inp){inp.focus();inp.select()}toast(name+' added – type a new name to rename it')};
 $('#lsT').addEventListener('change',e=>{const f=e.target.dataset.l;if(!f)return;const k=+e.target.closest('tr').dataset.k,s=st(),v=e.target.value.trim();
   if(f==='name'){const old=String(s.lines[k].name);if(!v){e.target.value=old;toast('Line name cannot be blank');return}if(!renameLine(k,v)){e.target.value=old;return}}
+  else if(f==='type'){const o=s.lines[k].type;s.lines[k].type=v;touch('Line '+s.lines[k].name+' type '+ltype(o)[1]+' → '+ltype(v)[1])}
   else{const o=s.lines[k].cap;s.lines[k].cap=v===''?'':+v||v;touch('Line '+s.lines[k].name+' length '+(o||'—')+' → '+(v||'—'))}refresh()});
-$('#sL').addEventListener('change',e=>{const s=st();let n=Math.min(60,Math.max(0,Math.round(+e.target.value||0)));if(!n&&!s.pfs.length){e.target.value=s.lines.length;toast('A station needs PFs or lines');return}
-  const o=s.lines.length;while(s.lines.length<n){let k=s.lines.length+1;while(s.lines.some(l=>String(l.name)==='Line '+k))k++;s.lines.push({name:'Line '+k,cap:''})}
-  const gone=s.lines.slice(n).map(l=>String(l.name)),used=s.occs.filter(x=>gone.includes(String(x.line))).length;s.lines.length=n;touch('No. of lines '+o+' → '+n);refresh();
-  if(used)toast(used+' occupation(s) are on removed lines — see Checks')});
+$('#lsT').addEventListener('click',e=>{const d=e.target.dataset.lxdel;if(d==null)return;const s=st(),k=+d,l=s.lines[k],n=s.occs.filter(o=>String(o.line)===String(l.name)).length;
+  s.lines.splice(k,1);touch('Deleted line '+l.name+(n?' ('+n+' occupation(s) left without a line)':''));refresh();
+  toast('Line '+l.name+' deleted'+(n?' – its '+n+' occupation(s) show in Checks':''),()=>{s.lines.splice(k,0,l);touch('Undo delete: restored line '+l.name);refresh()})});
 $('#chart').addEventListener('click',e=>{const g=e.target.closest('.lgrp');if(!g)return;const i=+g.dataset.li;tab('lines');$('#lnF').value='';$('#lnQ').value='';$('#lnBad').checked=false;renderLines([i]);
   const r=$(`#lnT tr[data-i="${i}"]`);if(r)r.scrollIntoView({block:'center'})});
 function lineChecks(){const out=[],go=i=>`<a data-lgo="${i}">${esc(LT.it[i].lab||'row '+(i+1))}</a>`;
@@ -826,11 +844,12 @@ function lineChecks(){const out=[],go=i=>`<a data-lgo="${i}">${esc(LT.it[i].lab|
 $('#ck').addEventListener('click',e=>{const i=e.target.dataset.lgo;if(i==null)return;tab('lines');$('#lnF').value='';$('#lnQ').value='';$('#lnBad').checked=false;renderLines([+i]);const r=$(`#lnT tr[data-i="${i}"]`);r&&r.scrollIntoView({block:'center'})});
 function applyVis(){const s=st();if(!s)return;const hp=s.pfs.length>0,hl=s.lines.length>0;
   ['trains','count','finder'].forEach(t=>$(`.tabs button[data-t=${t}]`).classList.toggle('hid',!hp));$('.tabs button[data-t=lines]').classList.toggle('hid',!hl);
-  const ct=$('#cType');ct.options[0].disabled=!hp;ct.options[1].disabled=!hl;if(ct.value==='pf'&&!hp)ct.value='ln';if(ct.value==='ln'&&!hl)ct.value='pf';
+  const ct=$('#cType');[...ct.options].forEach(op=>{op.hidden=op.disabled=op.value==='pf'?!hp:op.value==='ln'?!hl:!s.lines.some(l=>'ln:'+l.type===op.value)});
+  if(ct.selectedOptions[0]&&ct.selectedOptions[0].disabled){const f=[...ct.options].find(op=>!op.disabled);if(f)ct.value=f.value}
   $('#dayL').classList.toggle('hid',ct.value!=='pf');$('#noteCh').classList.toggle('hid',ct.value!=='pf');
   $('#pfT').closest('.tw').classList.toggle('hid',!hp);$('#pfNote').classList.toggle('hid',!hp);$('#sGap').closest('label').classList.toggle('hid',!hp);
   const cur0=$('.tabs button[aria-selected=true]');if(cur0&&cur0.classList.contains('hid'))tab('chart')}
-function chartSvgAll(s){const parts=[];if(s.pfs.length)parts.push(svgChart(s,layout(s,0,derive(s)),{day:0}));if(s.lines.length){const L=deriveL(s);parts.push(svgLines(s,layoutL(s,L),{}))}
+function chartSvgAll(s){const parts=[];if(s.pfs.length)parts.push(svgChart(s,layout(s,0,derive(s)),{day:0}));if(s.lines.length){const L=deriveL(s);parts.push(svgLines(s,lineBlocks(s,L,''),{}))}
   if(parts.length<2)return parts[0]?parts[0].svg:'';let y=0;const inner=parts.map(p=>{const t=p.svg.replace('<svg ',`<svg y="${y}" `);y+=p.H;return t}).join('');
   return`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${y}" viewBox="0 0 ${W} ${y}">${inner}</svg>`}
 /* ---------- PF <-> line cross-check: same rake in two places ---------- */
